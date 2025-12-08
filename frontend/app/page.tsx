@@ -8,7 +8,7 @@ export default function Home() {
   const { ready, authenticated, login } = usePrivy();
   const router = useRouter();
 
-  const handleEmailLogin = () => {
+  const handleLogin = () => {
     login();
   };
 
@@ -40,14 +40,29 @@ export default function Home() {
             Welcome to Cronos x402
           </h1>
           <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Please sign in with your email to continue.
+            Connect your wallet or sign in to continue
           </p>
-          <button
-            onClick={handleEmailLogin}
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-8 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[250px]"
-          >
-            Login with Email
-          </button>
+          <div className="flex w-full flex-col gap-3 md:w-[400px]">
+            <button
+              onClick={handleLogin}
+              className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-purple-600 px-8 text-white transition-colors hover:bg-purple-700 dark:bg-purple-500 dark:hover:bg-purple-600"
+            >
+              <svg
+                className="h-5 w-5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"
+                />
+              </svg>
+              Connect Wallet
+            </button>
+          </div>
         </div>
       </main>
     </div>

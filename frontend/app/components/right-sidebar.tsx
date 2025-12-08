@@ -10,13 +10,17 @@ export function RightSidebar({
   isOpen?: boolean;
   onClose?: () => void;
 }) {
-  const { logout } = usePrivy();
+  const { logout, linkWallet } = usePrivy();
   const { wallets } = useWallets();
   const [showDepositModal, setShowDepositModal] = useState(false);
   const [showWithdrawModal, setShowWithdrawModal] = useState(false);
 
   const handleLogout = () => {
     logout();
+  };
+
+  const handleConnectWallet = () => {
+    linkWallet();
   };
 
   const wallet = wallets[0];
@@ -134,11 +138,11 @@ export function RightSidebar({
         </div>
 
         {/* Wallet Section */}
-        {wallet && (
-          <div className="border-b border-zinc-200 p-6 dark:border-zinc-800">
-            <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
-              Wallet
-            </h2>
+        <div className="border-b border-zinc-200 p-6 dark:border-zinc-800">
+          <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+            Wallet
+          </h2>
+          {wallet ? (
             <div className="rounded-lg border border-zinc-200 bg-white p-4 dark:border-zinc-700 dark:bg-zinc-800">
               <div className="mb-3 flex items-center justify-between">
                 <p className="text-xs text-zinc-500 dark:text-zinc-400">
@@ -155,12 +159,30 @@ export function RightSidebar({
                   {wallet.address.slice(-4)}
                 </p>
                 <p className="mt-1 text-xs text-zinc-600 dark:text-zinc-400">
-                  Cronos
+                  {wallet.walletClientType || "Cronos"}
                 </p>
               </div>
+              <button
+                onClick={handleConnectWallet}
+                className="mt-2 w-full rounded-md bg-purple-600 px-3 py-2 text-xs font-medium text-white transition-colors hover:bg-purple-700 dark:bg-purple-500 dark:hover:bg-purple-600"
+              >
+                Connect Another Wallet
+              </button>
             </div>
-          </div>
-        )}
+          ) : (
+            <div className="rounded-lg border border-zinc-200 bg-white p-4 dark:border-zinc-700 dark:bg-zinc-800">
+              <p className="mb-3 text-sm text-zinc-600 dark:text-zinc-400">
+                No wallet connected
+              </p>
+              <button
+                onClick={handleConnectWallet}
+                className="w-full rounded-md bg-purple-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-purple-700 dark:bg-purple-500 dark:hover:bg-purple-600"
+              >
+                Connect Wallet
+              </button>
+            </div>
+          )}
+        </div>
 
         {/* Deposit/Withdraw Section */}
         <div className="border-b border-zinc-200 p-6 dark:border-zinc-800">

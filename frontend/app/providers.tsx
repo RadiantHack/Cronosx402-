@@ -24,11 +24,16 @@ export function Providers({ children }: ProvidersProps) {
       appId={appId}
       clientId={clientId}
       config={{
+        loginMethods: ["email", "wallet", "sms"],
+        appearance: {
+          theme: "light",
+          accentColor: "#9333ea",
+          logo: "https://cronos.org/favicon.ico",
+        },
         embeddedWallets: {
           ethereum: {
-            createOnLogin: "off",
+            createOnLogin: "users-without-wallets",
           },
-          showWalletUIs: false,
         },
         supportedChains: [
           {
