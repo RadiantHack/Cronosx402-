@@ -5,10 +5,11 @@ This module implements an AI-powered agent that helps users check cryptocurrency
 balances across multiple blockchain networks (Ethereum, BNB, Polygon, Cronos, etc.).
 
 Cronos support:
-- Uses Cronos Indexer GraphQL API to fetch balances
+- Uses Bitquery GraphQL API to fetch balances
 - Supports Ethereum-compatible addresses (0x format)
 - Network parameter: "cronos"
 - Fetches all fungible asset balances including native CRO token
+- Requires BITQUERY_API_KEY environment variable
 
 ARCHITECTURE OVERVIEW:
 ----------------------
@@ -59,9 +60,11 @@ KEY COMPONENTS:
 ENVIRONMENT VARIABLES:
 ----------------------
 - OPENAI_API_KEY: Required - OpenAI API key for LLM access
+- BITQUERY_API_KEY: Required - Bitquery API key for Cronos balance queries
 - OPENAI_MODEL: Optional - Model name (default: "gpt-4o-mini")
 - ITINERARY_PORT: Optional - Server port (default: 9001)
 - RENDER_EXTERNAL_URL: Optional - External URL for agent card
+- CRONOS_NETWORK: Optional - Network to use (default: "mainnet")
 
 USAGE:
 ------
@@ -75,17 +78,19 @@ Mounted mode:
 
 NOTES:
 ------
-- Cronos balance fetching is fully implemented using the indexer API
+- Cronos balance fetching is fully implemented using Bitquery API
 - Other networks (Ethereum, BNB, etc.) are stubbed and will be implemented later
 - Uses in-memory services (sessions, artifacts, memory) - not persistent
 - Error handling includes user-friendly messages for common issues
 - Supports streaming responses via AgentCapabilities
-- Cronos uses Sentio indexer by default (configurable via CRONOS_INDEXER_URL)
+- Bitquery API supports both v1 and v2 tokens (auto-detected)
 """
 
 import os
 import uuid
 import json
+import pathlib
+from decimal import Decimal
 from typing import Any, List, Dict, Optional
 
 import uvicorn
@@ -93,7 +98,13 @@ import requests
 from dotenv import load_dotenv
 
 # Load environment variables from .env file
-load_dotenv()
+# Try to load from backend directory first, then current directory
+backend_dir = pathlib.Path(__file__).parent.parent.parent.parent
+env_path = backend_dir / ".env"
+if env_path.exists():
+    load_dotenv(env_path)
+else:
+    load_dotenv()  # Fallback to current directory
 
 from a2a.server.agent_execution import AgentExecutor, RequestContext
 from a2a.server.apps import A2AStarletteApplication
@@ -132,28 +143,31 @@ ENV_ITINERARY_PORT = "ITINERARY_PORT"
 ENV_RENDER_EXTERNAL_URL = "RENDER_EXTERNAL_URL"
 ENV_OPENAI_API_KEY = "OPENAI_API_KEY"
 ENV_OPENAI_MODEL = "OPENAI_MODEL"
-ENV_CRONOS_INDEXER_URL = "CRONOS_INDEXER_URL"
+ENV_BITQUERY_API_KEY = "BITQUERY_API_KEY"
+ENV_CRONOS_NETWORK = "CRONOS_NETWORK"
 
-# Cronos Indexer constants
-CRONOS_INDEXER_MAINNET = "https://cronos.org/api/v1/graphql"
-CRONOS_INDEXER_TESTNET = "https://cronos.org/api/v1/graphql"
+# Bitquery API endpoints
+BITQUERY_API_V1_URL = "https://graphql.bitquery.io"
+BITQUERY_API_V2_URL = "https://graphql.bitquery.io/v2"
 
-# GraphQL query for Cronos balances
-CRONOS_BALANCES_QUERY = """
-query GetUserTokenBalances($ownerAddress: String!) {
-  current_fungible_asset_balances(
-    where: {
-      owner_address: {_eq: $ownerAddress},
-      amount: {_gt: 0}
-    }
-  ) {
-    asset_type
-    amount
-    last_transaction_timestamp
-    metadata {
-      name
-      symbol
-      decimals
+# GraphQL query to get user token balances using Bitquery API v2
+# This query fetches native CRO balance and all token balances for an address on Cronos
+GET_USER_BALANCES_QUERY = """
+query GetCronosBalances($address: String!) {
+  ethereum(network: cronos) {
+    address(address: {is: $address}) {
+      # Native coin balance (CRO)
+      balance
+      # Token balances (CRC-20)
+      balances {
+        currency {
+          name
+          symbol
+          decimals
+          address
+        }
+        value
+      }
     }
   }
 }
@@ -182,20 +196,22 @@ def get_system_prompt() -> str:
     return """You are a helpful Web3 assistant specializing in checking cryptocurrency balances.
 
 When users ask about balances:
-1. Extract the wallet address if provided (format: 0x...)
+1. Extract the wallet address:
+   - If user says "my balance", "fetch my balance", "check my balance", etc., the orchestrator will provide the connected wallet address
+   - If user provides a specific address (format: 0x...), use that address
+   - If no address is provided and user doesn't say "my balance", politely ask for it
 2. Determine which network they're asking about:
    - For Cronos: use "cronos"
-   - Default to cronos if not specified
+   - Default to "cronos" if not specified
 3. For token queries, identify the token symbol (USDC, USDT, DAI, CRO, etc.)
 4. Use the appropriate tool to fetch balance data
 5. Present results in a clear, user-friendly format
 
 Special handling for Cronos:
 - Cronos uses Ethereum-compatible addresses (0x format)
-- When user says "get my balance" or "give my balance" on Cronos, use the wallet address they provided
 - The network parameter should be "cronos"
+- When user refers to "my balance" or "my wallet", the address will be provided by the orchestrator
 
-If the user doesn't provide an address, politely ask for it.
 Addresses should start with 0x and contain valid hexadecimal characters.
 If there's an error, explain it clearly and suggest alternatives."""
 
@@ -250,17 +266,109 @@ def create_agent_card(port: int) -> AgentCard:
     )
 
 
-def get_cronos_indexer_url() -> str:
-    """Get Cronos Indexer URL from environment or default.
+def validate_address(address: str) -> bool:
+    """Validate Ethereum/Cronos address format.
+    
+    Args:
+        address: Address to validate
+        
+    Returns:
+        True if address is valid, False otherwise
+    """
+    if not address.startswith("0x"):
+        return False
+    if len(address) < 3:
+        return False
+    hex_part = address[2:]
+    if not all(c in "0123456789abcdefABCDEF" for c in hex_part):
+        return False
+    return True
+
+
+def get_bitquery_api_key() -> str:
+    """Get Bitquery API key from environment or raise error.
     
     Returns:
-        Cronos Indexer GraphQL URL
+        Bitquery API key
+        
+    Raises:
+        ValueError: If no API key is found
     """
-    return os.getenv(ENV_CRONOS_INDEXER_URL, CRONOS_INDEXER_MAINNET)
+    api_key = os.getenv(ENV_BITQUERY_API_KEY)
+    if not api_key:
+        # Check if .env file exists and provide helpful error message
+        backend_dir = pathlib.Path(__file__).parent.parent.parent.parent
+        env_path = backend_dir / ".env"
+        env_exists = env_path.exists()
+        
+        error_msg = (
+            "BITQUERY_API_KEY environment variable is required but not found.\n"
+            f"Please set it in your .env file or as an environment variable.\n"
+        )
+        if env_exists:
+            error_msg += (
+                f"Found .env file at: {env_path}\n"
+                f"Please add BITQUERY_API_KEY=your-api-key-here to this file.\n"
+            )
+        else:
+            error_msg += (
+                f"Could not find .env file at: {env_path}\n"
+                f"Please create a .env file in the backend directory with BITQUERY_API_KEY=your-api-key-here\n"
+            )
+        error_msg += "Get your free API key at: https://bitquery.io/"
+        raise ValueError(error_msg)
+    
+    # Check if API key is empty or just whitespace
+    if not api_key.strip():
+        raise ValueError(
+            "BITQUERY_API_KEY is set but appears to be empty.\n"
+            "Please check your .env file and ensure the API key value is not empty."
+        )
+    
+    return api_key.strip()
+
+
+def format_balance(amount: str, decimals: int = 18) -> str:
+    """Format balance from string amount to human-readable format.
+    
+    Args:
+        amount: Balance as string (from GraphQL response)
+        decimals: Number of decimals (default: 18)
+        
+    Returns:
+        Formatted balance string
+    """
+    try:
+        # Handle both string and numeric inputs
+        if isinstance(amount, str):
+            # Check if it's already a decimal number (has a dot)
+            if '.' in amount:
+                # Already in human-readable format
+                return f"{float(amount):.6f}"
+            # Otherwise, it's in smallest units (wei/satoshi)
+            amount_int = int(amount)
+        else:
+            amount_int = int(amount)
+        
+        # Convert from smallest unit to human-readable
+        if decimals > 0:
+            balance = amount_int / (10 ** decimals)
+        else:
+            balance = float(amount_int)
+        
+        # Return formatted with up to 6 decimal places, removing trailing zeros
+        formatted = f"{balance:.6f}".rstrip('0').rstrip('.')
+        return formatted if formatted else "0"
+    except (ValueError, TypeError) as e:
+        # If conversion fails, return the original value
+        return str(amount)
 
 
 def fetch_cronos_balances(address: str) -> Dict[str, Any]:
-    """Fetch balances from Cronos using the indexer API.
+    """Fetch balances from Cronos using Bitquery API.
+    
+    Fetches all tokens with balance > 0 from Bitquery.
+    Zero balance tokens are excluded.
     
     Args:
         address: Wallet address to check
@@ -269,42 +377,245 @@ def fetch_cronos_balances(address: str) -> Dict[str, Any]:
         Dictionary with balance information
     """
     try:
-        indexer_url = get_cronos_indexer_url()
-        variables = {"ownerAddress": address}
+        # Validate address format
+        if not validate_address(address):
+            return {
+                "success": False,
+                "error": f"Invalid address format: {address}. Address must start with 0x and contain valid hexadecimal characters.",
+            }
+        
+        # Get API key - catch ValueError if missing
+        try:
+            api_key = get_bitquery_api_key()
+        except ValueError as e:
+            return {
+                "address": address,
+                "success": False,
+                "error": str(e),
+            }
+        
+        variables = {
+            "address": address,
+        }
         payload = {
-            "query": CRONOS_BALANCES_QUERY,
+            "query": GET_USER_BALANCES_QUERY,
             "variables": variables,
         }
+        
+        # Determine API version and set headers/URL accordingly
+        # API v2 tokens typically start with "ory_at_" and use Authorization header
+        # API v1 tokens use X-API-KEY header
+        is_v2_token = api_key.startswith("ory_at_") or api_key.startswith("Bearer ")
+        
         headers = {
             "Content-Type": "application/json",
             "Accept": "application/json",
         }
+        
+        if is_v2_token:
+            # API v2 uses Authorization header with Bearer token
+            if not api_key.startswith("Bearer "):
+                headers["Authorization"] = f"Bearer {api_key}"
+            else:
+                headers["Authorization"] = api_key
+            api_url = BITQUERY_API_V2_URL
+        else:
+            # API v1 uses X-API-KEY header
+            headers["X-API-KEY"] = api_key
+            api_url = BITQUERY_API_V1_URL
+        
         response = requests.post(
-            indexer_url,
+            api_url,
             json=payload,
             headers=headers,
             timeout=30,
         )
-        if response.status_code != 200:
+        
+        if response.status_code == 401:
+            error_detail = "Unauthorized - Invalid API key. Please check your BITQUERY_API_KEY."
+            try:
+                error_data = response.json()
+                if "errors" in error_data:
+                    error_detail += f" Details: {json.dumps(error_data['errors'])}"
+                elif "message" in error_data:
+                    error_detail += f" Details: {error_data['message']}"
+            except:
+                error_detail += f" Response: {response.text[:200]}"
             return {
+                "address": address,
+                "error": error_detail,
                 "success": False,
-                "error": f"Indexer API error: {response.status_code}",
             }
+        if response.status_code == 403:
+            error_detail = "Forbidden - The API endpoint may require authentication or have access restrictions."
+            try:
+                error_data = response.json()
+                if "errors" in error_data:
+                    error_detail += f" Details: {json.dumps(error_data['errors'])}"
+            except:
+                error_detail += f" Response: {response.text[:200]}"
+            return {
+                "address": address,
+                "error": error_detail,
+                "success": False,
+            }
+        response.raise_for_status()
         data = response.json()
+        
         if "errors" in data:
             return {
-                "success": False,
+                "address": address,
                 "error": f"GraphQL errors: {json.dumps(data['errors'])}",
+                "success": False,
             }
-        balances = data.get("data", {}).get("current_fungible_asset_balances", [])
+        
+        # Parse Bitquery API v2 response structure
+        ethereum_data = data.get("data", {}).get("ethereum", {})
+        address_data = ethereum_data.get("address", [])
+        
+        if not address_data:
+            return {
+                "address": address,
+                "balances": [],
+                "success": True,
+                "total_fetched": 0,
+                "filtered_out": 0,
+            }
+        
+        address_info = address_data[0]
+        native_balance = address_info.get("balance", "0")
+        balances_list = address_info.get("balances", [])
+        
+        # Transform Bitquery format to our standard format
+        formatted_balances = []
+        
+        # Add native CRO balance first if > 0
+        if native_balance and native_balance != "0":
+            try:
+                # Bitquery returns native balance in different formats:
+                # - As decimal string (e.g., "24827.849010682339425216") - already in CRO units
+                # - As integer string in wei (e.g., "24827849010682339425216") - in smallest units
+                # We need to detect the format and convert to wei (smallest units) for storage
+                native_balance_str = str(native_balance).strip()
+                
+                if '.' in native_balance_str:
+                    # Already in decimal format (CRO units), convert to wei
+                    # Use Decimal for precision with large numbers
+                    native_balance_decimal = Decimal(native_balance_str)
+                    if native_balance_decimal > 0:
+                        # Convert from CRO to wei (multiply by 10^18)
+                        wei_multiplier = Decimal(10) ** 18
+                        native_balance_wei = int(native_balance_decimal * wei_multiplier)
+                        formatted_balances.append({
+                            "currency": {"name": "Cronos", "symbol": "CRO"},
+                            "value": str(native_balance_wei),
+                            "symbol": "CRO",
+                            "name": "Cronos",
+                            "decimals": 18,
+                            "contract": "",
+                            "is_native": True,
+                        })
+                else:
+                    # Already in wei (smallest units), use as-is
+                    native_balance_int = int(native_balance_str)
+                    if native_balance_int > 0:
+                        formatted_balances.append({
+                            "currency": {"name": "Cronos", "symbol": "CRO"},
+                            "value": str(native_balance_int),
+                            "symbol": "CRO",
+                            "name": "Cronos",
+                            "decimals": 18,
+                            "contract": "",
+                            "is_native": True,
+                        })
+            except (ValueError, TypeError) as e:
+                # Log the error for debugging but don't fail completely
+                print(f"Error parsing native balance '{native_balance}': {e}")
+                pass
+        
+        # Add token balances
+        for balance in balances_list:
+            currency = balance.get("currency", {})
+            value = balance.get("value", "0")
+            
+            # Skip zero balances
+            try:
+                value_float = float(value)
+                if value_float == 0:
+                    continue
+            except (ValueError, TypeError):
+                continue
+            
+            # Get decimals - handle None or missing values
+            decimals_raw = currency.get("decimals")
+            if decimals_raw is None:
+                decimals = 18  # Default for most tokens
+            else:
+                try:
+                    decimals = int(decimals_raw)
+                except (ValueError, TypeError):
+                    decimals = 18
+            
+            # Bitquery v2 might return value in different formats
+            # If value contains a decimal point, it's already formatted
+            # Otherwise, it's in smallest units and needs conversion
+            if isinstance(value, str) and '.' in value:
+                # Already in decimal format, store as-is but convert to smallest unit for storage
+                value_in_smallest = str(int(float(value) * (10 ** decimals)))
+            else:
+                # In smallest units (wei/satoshi), keep as-is
+                value_in_smallest = str(int(value_float))
+            
+            formatted_balance = {
+                "currency": currency,
+                "value": value_in_smallest,  # Always store in smallest units for consistency
+                "symbol": currency.get("symbol", "Unknown"),
+                "name": currency.get("name", "Unknown"),
+                "decimals": decimals,
+                "contract": currency.get("address", ""),
+                "is_native": False,
+            }
+            formatted_balances.append(formatted_balance)
+        
+        # Filter out test tokens
+        def is_test_token(balance: Dict) -> bool:
+            """Check if a token is a test token."""
+            name = balance.get("name", "").lower()
+            symbol = balance.get("symbol", "").lower()
+            return "test" in name or (symbol.startswith("t") and len(symbol) > 1 and symbol[1:].isupper())
+        
+        filtered_balances = [b for b in formatted_balances if not is_test_token(b)]
+        
+        # Sort balances: native CRO first, then by value descending
+        def sort_key(balance: Dict) -> tuple:
+            """Sort key: native token first, then by value descending."""
+            is_native = balance.get("is_native", False)
+            try:
+                value = float(balance.get("value", "0"))
+            except (ValueError, TypeError):
+                value = 0
+            return (not is_native, -value)
+        
+        filtered_balances.sort(key=sort_key)
+        
         return {
+            "address": address,
+            "balances": filtered_balances,
             "success": True,
-            "balances": balances,
+            "total_fetched": len(filtered_balances),
+            "filtered_out": len(formatted_balances) - len(filtered_balances),
+        }
+    except requests.exceptions.RequestException as e:
+        return {
+            "address": address,
+            "error": f"Request error: {str(e)}",
+            "success": False,
         }
     except Exception as e:
         return {
-            "success": False,
+            "address": address,
             "error": str(e),
+            "success": False,
         }
 
 
@@ -312,7 +623,7 @@ def format_cronos_balance_response(balances_data: Dict[str, Any], address: str) 
     """Format Cronos balance data into a user-friendly string.
     
     Args:
-        balances_data: Dictionary with balance data from indexer
+        balances_data: Dictionary with balance data from Bitquery
         address: Wallet address
         
     Returns:
@@ -325,20 +636,39 @@ def format_cronos_balance_response(balances_data: Dict[str, Any], address: str) 
         return f"Address {address} has no token balances on Cronos."
     result_lines = [f"Cronos balances for {address}:\n"]
     for idx, balance in enumerate(balances, 1):
-        asset_type = balance.get("asset_type", "Unknown")
-        amount = balance.get("amount", "0")
-        metadata = balance.get("metadata", {})
-        name = metadata.get("name", "Unknown Token")
-        symbol = metadata.get("symbol", "Unknown")
-        decimals = int(metadata.get("decimals", 18))
+        value = balance.get("value", "0")
+        symbol = balance.get("symbol", "Unknown")
+        name = balance.get("name", "Unknown")
+        decimals = int(balance.get("decimals", 18))
+        contract = balance.get("contract", "")
+        is_native = balance.get("is_native", False)
+        
+        # Format balance with proper precision
         try:
-            amount_int = int(amount)
-            formatted_balance = amount_int / (10 ** decimals)
-            result_lines.append(
-                f"{idx}. {name} ({symbol}): {formatted_balance:.6f} {symbol}"
-            )
+            value_int = int(value)
+            if decimals > 0:
+                balance_decimal = value_int / (10 ** decimals)
+                # Use more precision for very small values
+                if balance_decimal < 0.000001:
+                    formatted_balance = f"{balance_decimal:.18f}".rstrip('0').rstrip('.')
+                else:
+                    formatted_balance = f"{balance_decimal:.6f}".rstrip('0').rstrip('.')
+            else:
+                formatted_balance = str(value_int)
         except (ValueError, TypeError):
-            result_lines.append(f"{idx}. {name} ({symbol}): {amount} (raw)")
+            formatted_balance = str(value)
+        
+        result_lines.append(f"{idx}. {name} ({symbol})")
+        if contract and not is_native:
+            result_lines.append(f"   Contract: {contract}")
+        elif is_native:
+            result_lines.append(f"   Type: Native CRO")
+        result_lines.append(f"   Balance: {formatted_balance} {symbol}")
+    
+    filtered_out = balances_data.get("filtered_out", 0)
+    if filtered_out > 0:
+        result_lines.append(f"\nNote: {filtered_out} test token(s) filtered out")
+    
     return "\n".join(result_lines)
 
 
@@ -380,18 +710,17 @@ def get_token_balance(address: str, token: str, network: str = DEFAULT_NETWORK) 
         balances = balances_data.get("balances", [])
         token_upper = token.upper()
         for balance in balances:
-            metadata = balance.get("metadata", {})
-            symbol = metadata.get("symbol", "").upper()
+            symbol = balance.get("symbol", "").upper()
             if symbol == token_upper or token_upper in symbol:
-                amount = balance.get("amount", "0")
-                decimals = int(metadata.get("decimals", 18))
-                name = metadata.get("name", "Unknown Token")
+                value = balance.get("value", "0")
+                decimals = int(balance.get("decimals", 18))
+                name = balance.get("name", "Unknown Token")
                 try:
-                    amount_int = int(amount)
-                    formatted_balance = amount_int / (10 ** decimals)
+                    value_int = int(value)
+                    formatted_balance = value_int / (10 ** decimals)
                     return f"{address} has {formatted_balance:.6f} {symbol} ({name}) on Cronos"
                 except (ValueError, TypeError):
-                    return f"{address} has {amount} {symbol} (raw) on Cronos"
+                    return f"{address} has {value} {symbol} (raw) on Cronos"
         return f"No {token_upper} balance found for {address} on Cronos"
     return f"Token balance for {address}: {token.upper()} on {network} - Not implemented yet (only Cronos is currently supported)"
 

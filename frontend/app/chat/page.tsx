@@ -1,7 +1,7 @@
 "use client";
 
 import { CopilotChat } from "@copilotkit/react-ui";
-import { usePrivy } from "@privy-io/react-auth";
+import { usePrivy, useWallets } from "@privy-io/react-auth";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Sidebar } from "../components/sidebar";
@@ -9,9 +9,13 @@ import { RightSidebar } from "../components/right-sidebar";
 
 export default function ChatPage() {
   const { ready, authenticated } = usePrivy();
+  const { wallets } = useWallets();
   const router = useRouter();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isRightSidebarOpen, setIsRightSidebarOpen] = useState(false);
+  
+  // Get connected wallet address
+  const connectedWalletAddress = wallets[0]?.address || null;
 
   // Redirect to home if not authenticated
   useEffect(() => {
@@ -97,7 +101,11 @@ export default function ChatPage() {
         <div className="flex flex-1 flex-col overflow-hidden rounded-b-lg border-b border-zinc-200 dark:border-zinc-800">
           <CopilotChat
             className="h-full"
-            instructions="You are a Web3 and cryptocurrency assistant. Help users with blockchain operations, balance checks, token swaps, and market analysis. Always be helpful and provide clear, actionable information."
+            instructions={`You are a Web3 and cryptocurrency assistant. Help users with blockchain operations, balance checks, token swaps, and market analysis. Always be helpful and provide clear, actionable information.${
+              connectedWalletAddress
+                ? `\n\nIMPORTANT: The user has a connected wallet address: ${connectedWalletAddress}. When the user says "my balance", "fetch my balance", "check my balance", or similar phrases referring to their own wallet, automatically use this address: ${connectedWalletAddress}. Only use a different address if the user explicitly provides a specific wallet address in their message.`
+                : ""
+            }`}
             labels={{
               title: "Cronos Assistant",
               initial: "Hi! 👋 How can I assist you today?",

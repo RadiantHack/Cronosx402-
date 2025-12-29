@@ -25,6 +25,21 @@ export async function POST(request: NextRequest) {
   const rawBaseUrl =
     process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:8000";
   const baseUrl = rawBaseUrl.replace(/\/$/, "");
+  
+  // Try to extract wallet address from request body if available
+  // This will be passed from the frontend via CopilotKit context
+  let connectedWalletAddress: string | null = null;
+  try {
+    const body = await request.clone().json();
+    // Check if wallet address is in the request context/metadata
+    if (body?.context?.walletAddress) {
+      connectedWalletAddress = body.context.walletAddress;
+    } else if (body?.metadata?.walletAddress) {
+      connectedWalletAddress = body.metadata.walletAddress;
+    }
+  } catch {
+    // If parsing fails, continue without wallet address
+  }
 
   // Agent URLs - all Cronos agents
   const balanceAgentUrl = `${baseUrl}/balance`;
@@ -85,14 +100,17 @@ export async function POST(request: NextRequest) {
     instructions: `
       You are a Web3 and cryptocurrency orchestrator agent. Your role is to coordinate
       specialized agents to help users with blockchain and cryptocurrency operations.
+      
+      ${connectedWalletAddress ? `IMPORTANT USER CONTEXT: The user has a connected wallet address: ${connectedWalletAddress}. When the user says "my balance", "fetch my balance", "check my balance", "get my balance", "show my balance", or any similar phrase referring to their own wallet, you MUST automatically use this address: ${connectedWalletAddress}. Only use a different address if the user explicitly provides a specific wallet address in their message.` : ""}
 
       AVAILABLE SPECIALIZED AGENTS:
 
       1. **Balance Agent** (LangGraph) - Checks cryptocurrency balances across multiple chains
-         - Supports Ethereum, BNB, Polygon, and other EVM-compatible chains
-         - Can check native token balances (ETH, BNB, MATIC, etc.)
+         - Supports Ethereum, BNB, Polygon, Cronos, and other EVM-compatible chains
+         - Can check native token balances (ETH, BNB, MATIC, CRO, etc.)
          - Can check ERC-20 token balances (USDC, USDT, DAI, etc.)
          - Requires wallet address (0x format) and optional network specification
+         ${connectedWalletAddress ? `- Default wallet address (if user says "my balance"): ${connectedWalletAddress}` : ""}
 
       2. **Bridge Agent** (LangGraph) - Cross-chain asset bridging via Cronos Bridge
          - Bridges assets between Ethereum, BNB, Polygon and Cronos
@@ -168,11 +186,12 @@ export async function POST(request: NextRequest) {
 
       WORKFLOW EXAMPLES:
 
-      Example 1: Simple balance check
-      - User: "Check my balance"
-      - Extract: Ask for wallet address if not provided
-      - Call Balance Agent: address, network="ethereum" (default)
-      - Present: Native ETH balance
+      Example 1: Simple balance check (with connected wallet)
+      - User: "Check my balance" or "Fetch my balance"
+      ${connectedWalletAddress ? `- Extract: Use connected wallet address: ${connectedWalletAddress}` : "- Extract: Ask for wallet address if not provided"}
+      - Default network: cronos (if not specified)
+      - Call Balance Agent: address=${connectedWalletAddress || "user_provided"}, network="cronos"
+      - Present: Native CRO balance
 
       Example 2: Multi-chain balance
       - User: "Get my balance on Polygon"
@@ -194,10 +213,13 @@ export async function POST(request: NextRequest) {
       - Wait for result
       - Present: Combined results
 
-      ADDRESS VALIDATION:
+      ADDRESS HANDLING:
+      - When user says "my balance", "fetch my balance", "check my balance", etc.:
+        ${connectedWalletAddress ? `* AUTOMATICALLY use connected wallet: ${connectedWalletAddress}` : "* Ask user to connect wallet or provide address"}
+      - When user provides a specific address (e.g., "check balance of 0x..."), use that address
       - Wallet addresses must start with "0x" and be 42 characters long
       - If user provides invalid address, politely ask for correct format
-      - If address is missing, ask user to provide it
+      - Default network is "cronos" if not specified
 
       NETWORK SUPPORT:
       - Ethereum (default): ethereum, eth
