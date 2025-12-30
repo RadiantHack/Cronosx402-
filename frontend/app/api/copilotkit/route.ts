@@ -25,21 +25,6 @@ export async function POST(request: NextRequest) {
   const rawBaseUrl =
     process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:8000";
   const baseUrl = rawBaseUrl.replace(/\/$/, "");
-  
-  // Try to extract wallet address from request body if available
-  // This will be passed from the frontend via CopilotKit context
-  let connectedWalletAddress: string | null = null;
-  try {
-    const body = await request.clone().json();
-    // Check if wallet address is in the request context/metadata
-    if (body?.context?.walletAddress) {
-      connectedWalletAddress = body.context.walletAddress;
-    } else if (body?.metadata?.walletAddress) {
-      connectedWalletAddress = body.metadata.walletAddress;
-    }
-  } catch {
-    // If parsing fails, continue without wallet address
-  }
 
   // Agent URLs - all Cronos agents
   const balanceAgentUrl = `${baseUrl}/balance`;
@@ -55,6 +40,38 @@ export async function POST(request: NextRequest) {
   // Orchestrator URL needs trailing slash to avoid 307 redirect (POST -> GET conversion)
   // This works for both local (localhost:8000) and Railway (https://backend.railway.app)
   const orchestratorUrl = `${baseUrl}/orchestrator/`;
+
+  // ============================================
+  // EXTRACT WALLET ADDRESS FROM REQUEST
+  // ============================================
+  
+  // Try to extract wallet address from request body (CopilotKit may include it in context)
+  let connectedWalletAddress: string | null = null;
+  try {
+    const requestBody = await request.clone().json().catch(() => null);
+    if (requestBody) {
+      // Check for wallet address in various possible locations
+      if (requestBody.context?.walletAddress) {
+        connectedWalletAddress = requestBody.context.walletAddress;
+      } else if (requestBody.metadata?.walletAddress) {
+        connectedWalletAddress = requestBody.metadata.walletAddress;
+      } else if (requestBody.walletAddress) {
+        connectedWalletAddress = requestBody.walletAddress;
+      }
+      // Also check in readable context items
+      if (!connectedWalletAddress && requestBody.readableItems) {
+        for (const item of requestBody.readableItems) {
+          if (item.description?.includes("wallet address") && item.value) {
+            connectedWalletAddress = item.value;
+            break;
+          }
+        }
+      }
+    }
+  } catch (error) {
+    // If parsing fails, continue without wallet address
+    console.log("Could not extract wallet address from request:", error);
+  }
 
   // ============================================
   // AUTHENTICATION: Orchestrator (if needed)
@@ -101,16 +118,18 @@ export async function POST(request: NextRequest) {
       You are a Web3 and cryptocurrency orchestrator agent. Your role is to coordinate
       specialized agents to help users with blockchain and cryptocurrency operations.
       
-      ${connectedWalletAddress ? `IMPORTANT USER CONTEXT: The user has a connected wallet address: ${connectedWalletAddress}. When the user says "my balance", "fetch my balance", "check my balance", "get my balance", "show my balance", or any similar phrase referring to their own wallet, you MUST automatically use this address: ${connectedWalletAddress}. Only use a different address if the user explicitly provides a specific wallet address in their message.` : ""}
+      ${connectedWalletAddress 
+        ? `\n\n**IMPORTANT USER CONTEXT:**\nThe user has a connected wallet address: ${connectedWalletAddress}\nWhen the user asks for "my balance", "fetch my balance", "check my balance", "get my balance", or similar requests WITHOUT explicitly providing a wallet address, you MUST automatically use this connected wallet address (${connectedWalletAddress}) on the Cronos network. Do NOT ask for the wallet address - use ${connectedWalletAddress} automatically.\n\n`
+        : ""
+      }
 
       AVAILABLE SPECIALIZED AGENTS:
 
       1. **Balance Agent** (LangGraph) - Checks cryptocurrency balances across multiple chains
-         - Supports Ethereum, BNB, Polygon, Cronos, and other EVM-compatible chains
-         - Can check native token balances (ETH, BNB, MATIC, CRO, etc.)
+         - Supports Ethereum, BNB, Polygon, and other EVM-compatible chains
+         - Can check native token balances (ETH, BNB, MATIC, etc.)
          - Can check ERC-20 token balances (USDC, USDT, DAI, etc.)
          - Requires wallet address (0x format) and optional network specification
-         ${connectedWalletAddress ? `- Default wallet address (if user says "my balance"): ${connectedWalletAddress}` : ""}
 
       2. **Bridge Agent** (LangGraph) - Cross-chain asset bridging via Cronos Bridge
          - Bridges assets between Ethereum, BNB, Polygon and Cronos
@@ -175,8 +194,14 @@ export async function POST(request: NextRequest) {
       RECOMMENDED WORKFLOW FOR CRYPTO OPERATIONS:
 
       1. **Balance Agent** - Check cryptocurrency balances
-         - Extract wallet address from user query (format: 0x...)
-         - Extract network if specified (ethereum, bnb, polygon, etc.) - default to ethereum
+         - CRITICAL: When user says "my balance", "fetch my balance", "check my balance", "get my balance", etc. WITHOUT providing an address:
+           * FIRST: Call the get_connected_wallet_address action/tool to get the user's connected wallet address
+           * If a connected wallet address is returned, use that address automatically
+           * Default to Cronos network if not specified
+           * Do NOT ask the user for their wallet address - use the connected wallet automatically
+         - If user provides a specific wallet address explicitly, use that address instead (prioritize user-provided address)
+         - Extract wallet address from user query (format: 0x...) or use connected wallet from get_connected_wallet_address
+         - Extract network if specified (ethereum, bnb, polygon, cronos, etc.) - default to cronos
          - Extract token symbol if querying specific token (USDC, USDT, DAI, etc.)
          - Call Balance Agent with appropriate parameters:
            * For native balance: address and network
@@ -186,11 +211,17 @@ export async function POST(request: NextRequest) {
 
       WORKFLOW EXAMPLES:
 
-      Example 1: Simple balance check (with connected wallet)
-      - User: "Check my balance" or "Fetch my balance"
-      ${connectedWalletAddress ? `- Extract: Use connected wallet address: ${connectedWalletAddress}` : "- Extract: Ask for wallet address if not provided"}
-      - Default network: cronos (if not specified)
-      - Call Balance Agent: address=${connectedWalletAddress || "user_provided"}, network="cronos"
+      Example 1: Simple balance check with connected wallet
+      - User: "Check my balance"
+      - Context: User has connected wallet address 0xE67e4Fb0f9aaa64d18C2970a6Dce833f704e23DD
+      - Action: Use connected wallet address automatically
+      - Call Balance Agent: address=0xE67e4Fb0f9aaa64d18C2970a6Dce833f704e23DD, network="cronos" (default)
+      - Present: Native CRO balance
+
+      Example 1b: Balance check with specific address
+      - User: "Check balance of 0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb"
+      - Action: Use the provided address (ignore connected wallet)
+      - Call Balance Agent: address=0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb, network="cronos" (default)
       - Present: Native CRO balance
 
       Example 2: Multi-chain balance
@@ -213,13 +244,12 @@ export async function POST(request: NextRequest) {
       - Wait for result
       - Present: Combined results
 
-      ADDRESS HANDLING:
-      - When user says "my balance", "fetch my balance", "check my balance", etc.:
-        ${connectedWalletAddress ? `* AUTOMATICALLY use connected wallet: ${connectedWalletAddress}` : "* Ask user to connect wallet or provide address"}
-      - When user provides a specific address (e.g., "check balance of 0x..."), use that address
+      ADDRESS VALIDATION:
       - Wallet addresses must start with "0x" and be 42 characters long
       - If user provides invalid address, politely ask for correct format
-      - Default network is "cronos" if not specified
+      - If user says "my balance" or similar and no connected wallet is in context, ask user to provide wallet address
+      - Always prioritize user-provided address over connected wallet address
+      - When user provides a specific address, use that address even if a connected wallet exists
 
       NETWORK SUPPORT:
       - Ethereum (default): ethereum, eth
