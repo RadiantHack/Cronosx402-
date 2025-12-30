@@ -1,11 +1,41 @@
 "use client";
 
 import { CopilotChat } from "@copilotkit/react-ui";
+import { useCopilotReadable, useCopilotAction } from "@copilotkit/react-core";
 import { usePrivy, useWallets } from "@privy-io/react-auth";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Sidebar } from "../components/sidebar";
 import { RightSidebar } from "../components/right-sidebar";
+
+// Component to inject wallet address into CopilotKit context
+function WalletContextInjector() {
+  const { wallets, ready } = useWallets();
+  const walletAddress = wallets[0]?.address;
+
+  // Make wallet address readable by CopilotKit
+  useCopilotReadable({
+    description: `User's connected wallet address: ${walletAddress || "Not connected"}`,
+    value: walletAddress || null,
+  });
+
+  // Create an action that exposes the wallet address
+  useCopilotAction({
+    name: "get_connected_wallet_address",
+    description: "Get the user's connected wallet address. Use this when the user asks for 'my balance' or 'my wallet' without providing an address.",
+    parameters: [],
+    handler: async () => {
+      return {
+        walletAddress: walletAddress || null,
+        message: walletAddress 
+          ? `The user's connected wallet address is ${walletAddress}. Use this address when they ask for their balance.`
+          : "No wallet is currently connected.",
+      };
+    },
+  });
+
+  return null;
+}
 
 export default function ChatPage() {
   const { ready, authenticated } = usePrivy();
@@ -15,7 +45,7 @@ export default function ChatPage() {
   const [isRightSidebarOpen, setIsRightSidebarOpen] = useState(false);
   
   // Get connected wallet address
-  const connectedWalletAddress = wallets[0]?.address || null;
+  const walletAddress = wallets[0]?.address || null;
 
   // Redirect to home if not authenticated
   useEffect(() => {
@@ -99,11 +129,12 @@ export default function ChatPage() {
           </p>
         </div>
         <div className="flex flex-1 flex-col overflow-hidden rounded-b-lg border-b border-zinc-200 dark:border-zinc-800">
+          <WalletContextInjector />
           <CopilotChat
             className="h-full"
             instructions={`You are a Web3 and cryptocurrency assistant. Help users with blockchain operations, balance checks, token swaps, and market analysis. Always be helpful and provide clear, actionable information.${
-              connectedWalletAddress
-                ? `\n\nIMPORTANT: The user has a connected wallet address: ${connectedWalletAddress}. When the user says "my balance", "fetch my balance", "check my balance", or similar phrases referring to their own wallet, automatically use this address: ${connectedWalletAddress}. Only use a different address if the user explicitly provides a specific wallet address in their message.`
+              walletAddress
+                ? `\n\nIMPORTANT: The user has a connected wallet address: ${walletAddress}. When the user asks for "my balance", "fetch my balance", "check my balance", or similar requests without providing an address, automatically use this connected wallet address (${walletAddress}) on the Cronos network.`
                 : ""
             }`}
             labels={{
