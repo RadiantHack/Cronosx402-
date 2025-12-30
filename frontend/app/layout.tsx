@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import "@copilotkit/react-ui/styles.css";
 import { Providers } from "./providers";
+import { ThemeProvider } from "./components/themeProvider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -16,8 +17,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Cronos x402 - AI-Powered DeFi Gateway",
-  description:
-    "Multi-agent AI platform for seamless DeFi operations on Cronos",
+  description: "Multi-agent AI platform for seamless DeFi operations on Cronos",
   manifest: "/manifest.json",
   themeColor: "#000000",
   appleWebApp: {
@@ -41,7 +41,14 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
         suppressHydrationWarning
       >
-        <Providers>{children}</Providers>
+        <ThemeProvider
+          attribute={"class"}
+          enableSystem
+          defaultTheme="system"
+          storageKey="cronos-theme"
+        >
+          <Providers>{children}</Providers>
+        </ThemeProvider>
       </body>
     </html>
   );

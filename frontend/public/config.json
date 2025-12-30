@@ -1,0 +1,11 @@
+{
+  "cronosApiBase": "null",
+  "cronosFullNode": "null",
+  "cronosRpc": "null",
+  "cronosChainId": 25,
+  "cronosTestNetChainId": 338,
+  "mosaicApiBaseUrl": "https://api.mosaic.ag/v1",
+  "cronosLabsUrl": "https://evm.cronos.org",
+  "cronosExplorerUrl": "https://explorer.cronos.org/",
+  "cronosPositionBrokerUrl": "null"
+}

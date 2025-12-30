@@ -3,6 +3,7 @@
 import { usePrivy } from "@privy-io/react-auth";
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { ThemeToggle } from "./components/themeToggle";
 
 export default function Home() {
   const { ready, authenticated, login } = usePrivy();
@@ -34,6 +35,9 @@ export default function Home() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
+      <div className="absolute top-6 right-6 z-50">
+        <ThemeToggle />
+      </div>
       <main className="flex w-full max-w-2xl flex-col items-center gap-8 py-32 px-16 bg-white dark:bg-black">
         <div className="flex flex-col items-center gap-6 text-center">
           <h1 className="max-w-md text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">

@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Sidebar } from "../components/sidebar";
 import { RightSidebar } from "../components/right-sidebar";
+import { ThemeToggle } from "../components/themeToggle";
 
 // Component to inject wallet address into CopilotKit context
 function WalletContextInjector() {
@@ -22,12 +23,13 @@ function WalletContextInjector() {
   // Create an action that exposes the wallet address
   useCopilotAction({
     name: "get_connected_wallet_address",
-    description: "Get the user's connected wallet address. Use this when the user asks for 'my balance' or 'my wallet' without providing an address.",
+    description:
+      "Get the user's connected wallet address. Use this when the user asks for 'my balance' or 'my wallet' without providing an address.",
     parameters: [],
     handler: async () => {
       return {
         walletAddress: walletAddress || null,
-        message: walletAddress 
+        message: walletAddress
           ? `The user's connected wallet address is ${walletAddress}. Use this address when they ask for their balance.`
           : "No wallet is currently connected.",
       };
@@ -43,7 +45,7 @@ export default function ChatPage() {
   const router = useRouter();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isRightSidebarOpen, setIsRightSidebarOpen] = useState(false);
-  
+
   // Get connected wallet address
   const walletAddress = wallets[0]?.address || null;
 
@@ -120,13 +122,18 @@ export default function ChatPage() {
           </button>
         </div>
 
-        <div className="flex-shrink-0 border-b border-zinc-200 bg-white px-6 py-4 dark:border-zinc-800 dark:bg-zinc-900 hidden md:block">
-          <h1 className="text-xl font-semibold text-zinc-950 dark:text-zinc-50">
-            Agent Workspace
-          </h1>
-          <p className="text-sm text-zinc-600 dark:text-zinc-400">
-            Orchestrate agents and execute strategies
-          </p>
+        <div className="hidden shrink-0 border-b flex-row border-zinc-200 bg-white px-6 py-4 dark:border-zinc-800 dark:bg-zinc-900 md:block">
+          <div className="flex flex-row items-center justify-between">
+            <div>
+              <h1 className="text-xl font-semibold text-zinc-950 dark:text-zinc-50">
+                Agent Workspace
+              </h1>
+              <p className="text-sm text-zinc-600 dark:text-zinc-400">
+                Orchestrate agents and execute strategies
+              </p>
+            </div>
+            <ThemeToggle />
+          </div>
         </div>
         <div className="flex flex-1 flex-col overflow-hidden rounded-b-lg border-b border-zinc-200 dark:border-zinc-800">
           <WalletContextInjector />

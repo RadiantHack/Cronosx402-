@@ -2,22 +2,48 @@
 
 import { PrivyProvider } from "@privy-io/react-auth";
 import { CopilotKit } from "@copilotkit/react-core";
-import { ReactNode } from "react";
+import { ReactNode, useEffect } from "react";
+
+import {
+  Provider as ReduxProvider,
+  useDispatch,
+  useSelector,
+} from "react-redux";
+
+import { store, type RootState, type AppDispatch } from "../store";
+import { loadConfig } from "../store/configSlice";
+import { useCronosConfig } from "./hooks/useCronosConfig";
 
 interface ProvidersProps {
   children: ReactNode;
 }
 
-export function Providers({ children }: ProvidersProps) {
-  const appId = process.env.NEXT_PUBLIC_PRIVY_APP_ID;
-  const clientId = process.env.NEXT_PUBLIC_PRIVY_CLIENT_ID;
-  const copilotApiKey = process.env.NEXT_PUBLIC_COPILOTKIT_API_KEY;
+function ConfigGate({ children }: { children: ReactNode }) {
+  const dispatch = useDispatch<AppDispatch>();
+  const loaded = useSelector((s: RootState) => s.config.loaded);
+  const error = useSelector((s: RootState) => s.config.error);
 
-  if (!appId) {
-    throw new Error(
-      "NEXT_PUBLIC_PRIVY_APP_ID is not set. Please add it to your .env.local file."
-    );
-  }
+  useEffect(() => {
+    dispatch(loadConfig());
+  }, [dispatch]);
+
+  if (!loaded) return null;
+  if (error) return <div>Failed to load config: {error}</div>;
+  return <>{children}</>;
+}
+
+function PrivyProviderWithConfig({
+  children,
+  appId,
+  clientId,
+  copilotApiKey,
+}: {
+  children: ReactNode;
+  appId: string;
+  clientId: string | undefined;
+  copilotApiKey: string | undefined;
+}) {
+  const config = useCronosConfig();
 
   return (
     <PrivyProvider
@@ -37,7 +63,7 @@ export function Providers({ children }: ProvidersProps) {
         },
         supportedChains: [
           {
-            id: 25, // Cronos mainnet chain ID
+            id: config.cronosChainId, // Cronos mainnet chain ID
             name: "Cronos",
             network: "cronos",
             nativeCurrency: {
@@ -47,13 +73,13 @@ export function Providers({ children }: ProvidersProps) {
             },
             rpcUrls: {
               default: {
-                http: ["https://evm.cronos.org"],
+                http: [config.cronosLabsUrl],
               },
             },
             blockExplorers: {
               default: {
                 name: "Cronos Explorer",
-                url: "https://cronoscan.com",
+                url: config.cronosExplorerUrl,
               },
             },
           },
@@ -66,8 +92,31 @@ export function Providers({ children }: ProvidersProps) {
         agent="a2a_chat"
         publicApiKey={copilotApiKey}
       >
-        {children}
+        <ConfigGate>{children}</ConfigGate>
       </CopilotKit>
     </PrivyProvider>
+  );
+}
+export function Providers({ children }: ProvidersProps) {
+  const appId = process.env.NEXT_PUBLIC_PRIVY_APP_ID;
+  const clientId = process.env.NEXT_PUBLIC_PRIVY_CLIENT_ID;
+  const copilotApiKey = process.env.NEXT_PUBLIC_COPILOTKIT_API_KEY;
+
+  if (!appId) {
+    throw new Error(
+      "NEXT_PUBLIC_PRIVY_APP_ID is not set. Please add it to your .env.local file."
+    );
+  }
+
+  return (
+    <ReduxProvider store={store}>
+      <PrivyProviderWithConfig
+        appId={appId}
+        clientId={clientId}
+        copilotApiKey={copilotApiKey}
+      >
+        {children}
+      </PrivyProviderWithConfig>
+    </ReduxProvider>
   );
 }
