@@ -19,9 +19,9 @@ export function RightSidebar({
     logout();
   };
 
-  const handleConnectWallet = () => {
-    linkWallet();
-  };
+  // const handleConnectWallet = () => {
+  //   linkWallet();
+  // };
 
   const wallet = wallets[0];
 
@@ -162,24 +162,24 @@ export function RightSidebar({
                   {wallet.walletClientType || "Cronos"}
                 </p>
               </div>
-              <button
+              {/* <button
                 onClick={handleConnectWallet}
                 className="mt-2 w-full rounded-md bg-purple-600 px-3 py-2 text-xs font-medium text-white transition-colors hover:bg-purple-700 dark:bg-purple-500 dark:hover:bg-purple-600"
               >
                 Connect Another Wallet
-              </button>
+              </button> */}
             </div>
           ) : (
             <div className="rounded-lg border border-zinc-200 bg-white p-4 dark:border-zinc-700 dark:bg-zinc-800">
               <p className="mb-3 text-sm text-zinc-600 dark:text-zinc-400">
                 No wallet connected
               </p>
-              <button
+              {/* <button
                 onClick={handleConnectWallet}
                 className="w-full rounded-md bg-purple-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-purple-700 dark:bg-purple-500 dark:hover:bg-purple-600"
               >
                 Connect Wallet
-              </button>
+              </button> */}
             </div>
           )}
         </div>
