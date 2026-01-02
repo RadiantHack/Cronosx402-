@@ -26,6 +26,7 @@ from app.agents.bitcoin_defi.agent import create_bitcoin_defi_agent_app
 from app.agents.stablecoin.agent import create_stablecoin_agent_app
 from app.agents.analytics.agent import create_analytics_agent_app
 from app.agents.orchestrator.agent import create_orchestrator_agent_app
+from app.agents.transfer.agent import create_transfer_agent_app
 
 # Configuration constants
 DEFAULT_AGENTS_PORT = 8000
@@ -94,6 +95,10 @@ def register_agents(app: FastAPI) -> None:
     # Analytics Agent (A2A Protocol)
     analytics_agent_app = create_analytics_agent_app(card_url=f"{base_url}/analytics")
     app.mount("/analytics", analytics_agent_app.build())
+    
+    # Transfer Agent (A2A Protocol)
+    transfer_agent_app = create_transfer_agent_app(card_url=f"{base_url}/transfer")
+    app.mount("/transfer", transfer_agent_app.build())
     
     # Orchestrator Agent (AG-UI ADK Protocol)
     orchestrator_agent_app = create_orchestrator_agent_app()
