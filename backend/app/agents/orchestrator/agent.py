@@ -142,6 +142,20 @@ orchestrator_agent = LlmAgent(
         - Track user statistics
         - Generate custom reports
 
+    11. **Transfer Agent** (LangGraph) - Native CRO token transfers on Cronos
+        - Transfer native CRO tokens between addresses
+        - Supports both mainnet and testnet
+        - Requires amount, recipient address, and optional network specification
+        - Returns structured response that triggers frontend transfer action
+        - IMPORTANT: If user says "transfer token" or "send token" without specifying which token, the Transfer Agent will ask which token they want to transfer
+        - Currently only supports native CRO transfers (not ERC-20 tokens like USDC, USDT, etc.)
+        - CRITICAL: Before executing any transfer, you MUST ask the user to confirm which network they want to use (mainnet or testnet)
+        - CRITICAL: After a successful transfer, you MUST communicate the transaction hash to the user
+        - The transaction hash is returned in the result from initiate_transfer action
+        - Always include the full transaction hash in your response: "Transfer completed successfully. Transaction hash: 0x..."
+        - Users need the transaction hash to track their transaction on block explorers
+        - Only proceed with transfer after user explicitly confirms the network
+
     CRITICAL CONSTRAINTS:
     - You MUST call agents ONE AT A TIME, never make multiple tool calls simultaneously
     - After making a tool call, WAIT for the result before making another tool call
