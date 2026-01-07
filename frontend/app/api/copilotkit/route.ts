@@ -29,19 +29,16 @@ export async function POST(request: NextRequest) {
   // Agent URLs - only include agents that are currently implemented
   const balanceAgentUrl = `${baseUrl}/balance`;
   const predictionAgentUrl = `${baseUrl}/prediction`;
-  
-  // TODO: Uncomment these when the corresponding agents are implemented
-  // const bridgeAgentUrl = `${baseUrl}/bridge`;
-  // const orderbookAgentUrl = `${baseUrl}/orderbook`;
-  // const liquidityAgentUrl = `${baseUrl}/liquidity`;
-  // const yieldOptimizerAgentUrl = `${baseUrl}/yield_optimizer`;
-  // const lendingAgentUrl = `${baseUrl}/lending`;
-  // const bitcoinDefiAgentUrl = `${baseUrl}/bitcoin_defi`;
-  // const stablecoinAgentUrl = `${baseUrl}/stablecoin`;
-  // const analyticsAgentUrl = `${baseUrl}/analytics`;
-  // Orchestrator URL needs trailing slash to avoid 307 redirect (POST -> GET conversion)
-  // This works for both local (localhost:8000) and Railway (https://backend.railway.app)
-  const orchestratorUrl = `${baseUrl}/orchestrator/`;
+  const liquidityAgentUrl = `${baseUrl}/liquidity`;
+  const yieldOptimizerAgentUrl = `${baseUrl}/yield_optimizer`;
+  const lendingAgentUrl = `${baseUrl}/lending`;
+  const bitcoinDefiAgentUrl = `${baseUrl}/bitcoin_defi`;
+  const stablecoinAgentUrl = `${baseUrl}/stablecoin`;
+    const analyticsAgentUrl = `${baseUrl}/analytics`;
+    const transferAgentUrl = `${baseUrl}/transfer`;
+    // Orchestrator URL needs trailing slash to avoid 307 redirect (POST -> GET conversion)
+    // This works for both local (localhost:8000) and Railway (https://backend.railway.app)
+    const orchestratorUrl = `${baseUrl}/orchestrator/`;
 
   // ============================================
   // EXTRACT WALLET ADDRESS FROM REQUEST
@@ -106,15 +103,13 @@ export async function POST(request: NextRequest) {
     agentUrls: [
       balanceAgentUrl,
       predictionAgentUrl,
-      // TODO: Add these when the corresponding agents are implemented
-      // bridgeAgentUrl,
-      // orderbookAgentUrl,
-      // liquidityAgentUrl,
-      // yieldOptimizerAgentUrl,
-      // lendingAgentUrl,
-      // bitcoinDefiAgentUrl,
-      // stablecoinAgentUrl,
-      // analyticsAgentUrl,
+      liquidityAgentUrl,
+      yieldOptimizerAgentUrl,
+      lendingAgentUrl,
+      bitcoinDefiAgentUrl,
+      stablecoinAgentUrl,
+      analyticsAgentUrl,
+      transferAgentUrl,
     ],
     orchestrationAgent,
     instructions: `
@@ -150,11 +145,28 @@ export async function POST(request: NextRequest) {
       - Stablecoin Agent - Stablecoin management
       - Analytics Agent - Protocol analytics
 
+      11. **Transfer Agent** (LangGraph) - Native CRO token transfers on Cronos
+          - Transfer native CRO tokens between addresses
+          - Supports both mainnet and testnet
+          - Requires amount, recipient address, and optional network specification
+          - Returns structured response with transfer parameters
+          - IMPORTANT: If user says "transfer token" or "send token" without specifying which token, the Transfer Agent will ask which token they want to transfer
+          - Currently only supports native CRO transfers (not ERC-20 tokens like USDC, USDT, etc.)
+          - CRITICAL: Before executing any transfer, you MUST ask the user to confirm which network they want to use (mainnet or testnet)
+          - IMPORTANT: After calling Transfer Agent and receiving transfer parameters, you MUST ask the user to confirm the network before calling initiate_transfer
+          - Only call initiate_transfer after the user explicitly confirms the network (mainnet or testnet)
+          - CRITICAL: After a successful transfer, you MUST communicate the transaction hash to the user
+          - The transaction hash is returned in the result from initiate_transfer action
+          - Always include the full transaction hash in your response: "Transfer completed successfully. Transaction hash: 0x..."
+          - Users need the transaction hash to track their transaction on block explorers
+
       CRITICAL CONSTRAINTS:
       - You MUST call agents ONE AT A TIME, never make multiple tool calls simultaneously
       - After making a tool call, WAIT for the result before making another tool call
       - Do NOT make parallel/concurrent tool calls - this is not supported
       - Always validate wallet addresses are in 0x format and 42 characters long
+      - For transfers: ALWAYS ask the user to confirm which network (mainnet or testnet) before executing any transfer transaction
+      - NEVER execute a transfer without explicit network confirmation from the user
 
       RECOMMENDED WORKFLOW FOR CRYPTO OPERATIONS:
 

@@ -7,15 +7,37 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Sidebar } from "../components/sidebar";
 import { RightSidebar } from "../components/right-sidebar";
+import { transferCRO } from "@/app/lib/transfer/transfer";
+import type { CronosNetwork } from "@/app/lib/transfer/transfer";
+import { ConnectedWallet } from "@privy-io/react-auth";
 
-// Component to inject wallet address into CopilotKit context
+// Component to inject wallet address into CopilotKit context and handle transfer actions
 function WalletContextInjector() {
   const { wallets, ready } = useWallets();
-  const walletAddress = wallets[0]?.address;
+  
+  // Get Privy embedded wallet only (exclude MetaMask and other external wallets)
+  const privyWallet = wallets.find(w => {
+    // Explicit Privy embedded wallet
+    if (w.walletClientType === 'privy') {
+      return true;
+    }
+    // Embedded wallet (no walletClientType or chainType === 'ethereum')
+    if (!w.walletClientType || (w as any).chainType === 'ethereum') {
+      // Make sure it's not an external wallet
+      return w.walletClientType !== 'metamask' && 
+             w.walletClientType !== 'coinbase_wallet' &&
+             w.walletClientType !== 'wallet_connect' &&
+             w.walletClientType !== 'phantom';
+    }
+    return false;
+  });
+  
+  const wallet = privyWallet;
+  const walletAddress = privyWallet?.address;
 
   // Make wallet address readable by CopilotKit
   useCopilotReadable({
-    description: `User's connected wallet address: ${walletAddress || "Not connected"}`,
+    description: `User's connected Privy embedded wallet address: ${walletAddress || "Not connected"}`,
     value: walletAddress || null,
   });
 
@@ -34,7 +56,95 @@ function WalletContextInjector() {
     },
   });
 
-  return null;
+  // Handle transfer action from transfer agent
+  useCopilotAction({
+    name: "initiate_transfer",
+    description: "Transfer native CRO tokens on Cronos. This action is triggered when the transfer agent returns a transfer request.",
+    parameters: [
+      {
+        name: "amount",
+        type: "string",
+        description: "Amount of CRO to transfer (e.g., '1.0')",
+        required: true,
+      },
+      {
+        name: "recipient",
+        type: "string",
+        description: "Recipient wallet address (0x format, 42 characters)",
+        required: true,
+      },
+      {
+        name: "network",
+        type: "string",
+        description: "Network to use: 'mainnet' or 'testnet'. Must be explicitly confirmed by the user before execution.",
+        required: true,
+      },
+    ],
+    handler: async ({ amount, recipient, network }) => {
+      // Validate network is provided
+      if (!network || (network !== "mainnet" && network !== "testnet")) {
+        return {
+          success: false,
+          error: "Network must be explicitly specified as 'mainnet' or 'testnet'. Please confirm which network you want to use before executing the transfer.",
+        };
+      }
+      if (!wallet) {
+        return {
+          success: false,
+          error: "No wallet connected. Please connect your Privy wallet first.",
+        };
+      }
+      
+      // Verify it's a Privy embedded wallet (not MetaMask or other external wallets)
+      if (!wallet) {
+        return {
+          success: false,
+          error: "No Privy embedded wallet found. Please connect your Privy embedded wallet (not MetaMask or other external wallets).",
+        };
+      }
+      
+      // Check if it's an external wallet (MetaMask, Coinbase, etc.)
+      if (wallet.walletClientType && 
+          wallet.walletClientType !== 'privy' &&
+          wallet.walletClientType !== undefined &&
+          wallet.walletClientType !== null) {
+        return {
+          success: false,
+          error: `Invalid wallet type. This function requires a Privy embedded wallet, but found: ${wallet.walletClientType}. Please connect your Privy embedded wallet (not MetaMask or other external wallets).`,
+        };
+      }
+      
+      // Verify wallet has an address
+      if (!wallet.address) {
+        return {
+          success: false,
+          error: "Privy embedded wallet is not properly connected. Please ensure your Privy embedded wallet is connected and has an address.",
+        };
+      }
+
+      try {
+        const result = await transferCRO({
+          wallet,
+          recipient,
+          amount,
+          network: network as CronosNetwork,
+        });
+
+        return {
+          success: true,
+          message: `Transfer completed successfully! Sent ${amount} ${network === 'testnet' ? 'TCRO' : 'CRO'} to ${recipient}. Transaction hash: ${result.hash}. You can track this transaction on the Cronos block explorer using the transaction hash.`,
+          transactionHash: result.hash,
+        };
+      } catch (error: any) {
+        return {
+          success: false,
+          error: error.message || "Transfer failed. Please try again.",
+        };
+      }
+    },
+  });
+
+    return null;
 }
 
 export default function ChatPage() {
@@ -44,8 +154,25 @@ export default function ChatPage() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isRightSidebarOpen, setIsRightSidebarOpen] = useState(false);
   
-  // Get connected wallet address
-  const walletAddress = wallets[0]?.address || null;
+  // Get Privy embedded wallet only (exclude MetaMask and other external wallets)
+  const privyWallet = wallets.find(w => {
+    // Explicit Privy embedded wallet
+    if (w.walletClientType === 'privy') {
+      return true;
+    }
+    // Embedded wallet (no walletClientType or chainType === 'ethereum')
+    if (!w.walletClientType || (w as any).chainType === 'ethereum') {
+      // Make sure it's not an external wallet
+      return w.walletClientType !== 'metamask' && 
+             w.walletClientType !== 'coinbase_wallet' &&
+             w.walletClientType !== 'wallet_connect' &&
+             w.walletClientType !== 'phantom';
+    }
+    return false;
+  });
+  
+  // Get connected wallet address from Privy embedded wallet
+  const walletAddress = privyWallet?.address || null;
 
   // Redirect to home if not authenticated
   useEffect(() => {

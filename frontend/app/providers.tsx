@@ -57,6 +57,27 @@ export function Providers({ children }: ProvidersProps) {
               },
             },
           },
+          {
+            id: 338, // Cronos testnet chain ID
+            name: "Cronos Testnet",
+            network: "cronos-testnet",
+            nativeCurrency: {
+              name: "TCRO",
+              symbol: "TCRO",
+              decimals: 18,
+            },
+            rpcUrls: {
+              default: {
+                http: ["https://evm-t3.cronos.org"],
+              },
+            },
+            blockExplorers: {
+              default: {
+                name: "Cronos Testnet Explorer",
+                url: "https://testnet.cronoscan.com",
+              },
+            },
+          },
         ],
       }}
     >
