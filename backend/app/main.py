@@ -16,6 +16,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.agents.balance.agent import create_balance_agent_app
+from app.agents.balance.api import router as balance_api_router
 from app.agents.bridge.agent import create_bridge_agent_app
 from app.agents.orderbook.agent import create_orderbook_agent_app
 from app.agents.prediction.agent import create_prediction_agent_app
@@ -55,6 +56,9 @@ def register_agents(app: FastAPI) -> None:
         app: The FastAPI application instance to mount agents on
     """
     base_url = get_base_url()
+    
+    # Balance API (Structured JSON endpoint)
+    app.include_router(balance_api_router, tags=["balance"])
     
     # Balance Agent (A2A Protocol)
     balance_agent_app = create_balance_agent_app(card_url=f"{base_url}/balance")
