@@ -50,31 +50,38 @@ export function Sidebar({
       {/* Mobile Backdrop */}
       {isOpen && (
         <div
-          className="fixed inset-0 z-40 bg-black/50 md:hidden"
+          className="fixed inset-0 z-40 bg-black/30 backdrop-blur-sm md:hidden"
           onClick={onClose}
         />
       )}
 
       {/* Sidebar Container */}
       <div
-        className={`fixed inset-y-0 left-0 z-50 flex w-64 flex-col border-r border-zinc-200 bg-zinc-50 transition-transform duration-300 dark:border-zinc-800 dark:bg-zinc-900 md:static md:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-50 flex w-64 flex-col border-r border-violet-100 bg-white shadow-lg transition-transform duration-300 md:static md:translate-x-0 md:shadow-none ${
           isOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
         {/* Logo */}
-        <div className="flex items-center justify-between border-b border-zinc-200 p-4 dark:border-zinc-800">
-          <div>
-            <h1 className="text-xl font-semibold text-zinc-950 dark:text-zinc-50">
-              Cronos x402
-            </h1>
-            <p className="text-xs text-zinc-600 dark:text-zinc-400">
-              AI-Powered DeFi Gateway
-            </p>
+        <div className="flex items-center justify-between border-b border-violet-100 bg-gradient-to-r from-white to-violet-50/30 p-4">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center shadow-md shadow-violet-500/30">
+              <svg className="h-5 w-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
+            </div>
+            <div>
+              <h1 className="text-lg font-bold text-gray-900">
+                Cronos x402
+              </h1>
+              <p className="text-xs text-gray-600">
+                AI-Powered DeFi
+              </p>
+            </div>
           </div>
           {/* Close button for mobile */}
           <button
             onClick={onClose}
-            className="rounded-md p-1 text-zinc-500 hover:bg-zinc-200 dark:text-zinc-400 dark:hover:bg-zinc-800 md:hidden"
+            className="rounded-lg p-1.5 text-gray-500 hover:bg-violet-50 transition-colors md:hidden"
           >
             <svg
               className="h-5 w-5"
@@ -93,7 +100,7 @@ export function Sidebar({
         </div>
 
         {/* Navigation */}
-        <div className="flex-1 overflow-y-auto p-4">
+        <div className="flex-1 overflow-y-auto p-4 bg-gradient-to-b from-transparent to-violet-50/20">
           <nav className="space-y-2">
             {navItems.map((item) => {
               const isActive = pathname === item.href;
@@ -102,12 +109,15 @@ export function Sidebar({
                   key={item.href}
                   href={item.href}
                   onClick={() => onClose?.()}
-                  className={`block rounded-lg px-3 py-2 text-sm transition-colors ${
+                  className={`flex items-center gap-2 rounded-xl px-4 py-3 text-sm font-medium transition-all ${
                     isActive
-                      ? "bg-purple-100 font-medium text-purple-900 dark:bg-purple-900/30 dark:text-purple-300"
-                      : "text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                      ? "bg-gradient-to-r from-violet-500 to-purple-600 text-white shadow-md shadow-violet-500/30"
+                      : "text-gray-700 hover:bg-violet-50 hover:text-violet-700"
                   }`}
                 >
+                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  </svg>
                   {item.label}
                 </Link>
               );
@@ -116,26 +126,29 @@ export function Sidebar({
 
           {/* Available Agents */}
           <div className="mt-8">
-            <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
-              AVAILABLE AGENTS
+            <h2 className="mb-4 text-xs font-bold uppercase tracking-wider text-gray-500 px-2">
+              AI AGENTS
             </h2>
             <div className="grid gap-3">
               {agents.map((agent) => (
                 <button
                   key={agent.name}
-                  className={`group flex w-full items-center gap-3 rounded-xl p-3 transition-shadow hover:shadow-md ${agent.gradient} border border-zinc-100 dark:border-zinc-800`}
+                  className={`group flex w-full items-center gap-3 rounded-xl p-3.5 transition-all hover:shadow-lg hover:scale-105 ${agent.gradient} border border-white/50 shadow-sm`}
                 >
-                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-white/70 text-lg shadow-sm">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/90 text-xl shadow-md backdrop-blur-sm">
                     <span aria-hidden>{agent.icon}</span>
                   </div>
-                  <div className="text-left">
-                    <p className="text-sm font-semibold leading-4">
+                  <div className="text-left flex-1">
+                    <p className="text-sm font-bold leading-tight">
                       {agent.name}
                     </p>
-                    <p className="mt-1 text-xs opacity-80">
+                    <p className="mt-1 text-xs opacity-90 font-medium">
                       {agent.description}
                     </p>
                   </div>
+                  <svg className="h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
                 </button>
               ))}
             </div>
