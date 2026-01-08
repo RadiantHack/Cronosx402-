@@ -5,7 +5,7 @@ Provides a structured JSON endpoint for fetching balance data
 without the agent's text formatting.
 """
 
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
@@ -25,9 +25,9 @@ class BalanceResponse(BaseModel):
     address: str
     balances: list
     success: bool
-    error: str | None = None
-    total_fetched: int | None = None
-    filtered_out: int | None = None
+    error: Optional[str] = None
+    total_fetched: Optional[int] = None
+    filtered_out: Optional[int] = None
 
 
 @router.post("/api/balance/json")

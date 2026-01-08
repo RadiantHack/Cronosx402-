@@ -85,10 +85,27 @@ export default function BalancePage() {
 
   const formatBalance = (value: string, decimals: number): string => {
     try {
-      const valueInt = parseInt(value);
-      const balance = valueInt / Math.pow(10, decimals);
-      return balance.toFixed(6).replace(/\.?0+$/, "");
-    } catch {
+      // Handle both decimal strings and integer strings (wei format)
+      if (value.includes('.')) {
+        // Already in decimal format (e.g., "0.162331")
+        const balance = parseFloat(value);
+        return balance.toFixed(6).replace(/\.?0+$/, "") || "0";
+      } else {
+        // In smallest units (wei format) - convert to decimal
+        const valueInt = BigInt(value);
+        const divisor = BigInt(10 ** decimals);
+        const wholePart = valueInt / divisor;
+        const fractionalPart = valueInt % divisor;
+        
+        // Convert fractional part to decimal string
+        const fractionalStr = fractionalPart.toString().padStart(decimals, '0');
+        const decimalValue = `${wholePart}.${fractionalStr}`;
+        const balance = parseFloat(decimalValue);
+        
+        return balance.toFixed(6).replace(/\.?0+$/, "") || "0";
+      }
+    } catch (err) {
+      console.error("Error formatting balance:", err, "value:", value);
       return "0";
     }
   };
