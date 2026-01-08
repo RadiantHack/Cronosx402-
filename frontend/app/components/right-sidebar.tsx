@@ -279,35 +279,30 @@ export function RightSidebar({
           )}
         </div>
 
-        {/* Recent Transactions Section */}
+        {/* Recent Transactions Section (compact list) */}
         <div className="flex-1 overflow-y-auto p-6">
           <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
             Recent Activity
           </h2>
-          <div className="space-y-3">
+          <div className="space-y-2">
             {recentTransactions.map((tx) => (
-              <div
-                key={tx.id}
-                className="flex items-start gap-3 rounded-lg bg-white p-3 shadow-sm transition-all hover:shadow-md dark:bg-zinc-800"
-              >
-                <div
-                  className={`flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full text-lg ${getColorClasses(tx.color)}`}
-                >
-                  {tx.icon}
-                </div>
-                <div className="flex-1 overflow-hidden">
-                  <div className="flex items-start justify-between gap-2">
-                    <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
-                      {tx.type}
-                    </p>
-                    <span className="flex-shrink-0 rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700 dark:bg-green-900/30 dark:text-green-400">
-                      {tx.status}
-                    </span>
-                  </div>
-                  <p className="mt-1 truncate text-xs text-zinc-600 dark:text-zinc-400">
+              <div key={tx.id} className="flex items-center gap-3 px-2 py-1">
+                <span
+                  className={`inline-block h-3 w-3 shrink-0 rounded-full ${
+                    tx.color === "purple"
+                      ? "bg-purple-400"
+                      : tx.color === "blue"
+                      ? "bg-blue-400"
+                      : tx.color === "green"
+                      ? "bg-emerald-400"
+                      : "bg-yellow-400"
+                  }`}
+                />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium truncate text-zinc-900 dark:text-zinc-100">
                     {tx.description}
                   </p>
-                  <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-500">
+                  <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
                     {tx.time}
                   </p>
                 </div>

@@ -19,23 +19,30 @@ export function Sidebar({
 
   const navItems = [
     { href: "/chat", label: "New Chat" },
-    { href: "/overview", label: "Overview" },
-    { href: "/positions", label: "Live Positions" },
-    { href: "/wallets", label: "Wallets" },
-    { href: "/risk", label: "Risk Controls" },
   ];
 
   const agents = [
-    { name: "Balance Agent", description: "Check cryptocurrency balances" },
-    { name: "Bridge Agent", description: "Cross-chain asset bridging" },
-    { name: "OrderBook Agent", description: "Trade on ClobX DEX" },
-    { name: "Prediction Agent", description: "BRKT prediction markets" },
-    { name: "Liquidity Agent", description: "Manage liquidity pools" },
-    { name: "Yield Optimizer", description: "Optimize yield strategies" },
-    { name: "Lending Agent", description: "Lending & borrowing" },
-    { name: "Bitcoin DeFi", description: "Bitcoin DeFi operations" },
-    { name: "Stablecoin Agent", description: "Stablecoin management" },
-    { name: "Analytics Agent", description: "Protocol analytics" },
+    {
+      name: "Balance",
+      description: "Check balances",
+      icon: "💰",
+      gradient:
+        "bg-gradient-to-br from-yellow-100 via-amber-100 to-orange-100 text-orange-800",
+    },
+    {
+      name: "Swap",
+      description: "Swap tokens",
+      icon: "🔁",
+      gradient:
+        "bg-gradient-to-br from-indigo-100 via-purple-100 to-pink-100 text-pink-700",
+    },
+    {
+      name: "Transfer",
+      description: "Send native CRO",
+      icon: "✈️",
+      gradient:
+        "bg-gradient-to-br from-emerald-100 via-green-100 to-teal-100 text-emerald-700",
+    },
   ];
 
   return (
@@ -112,19 +119,24 @@ export function Sidebar({
             <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
               AVAILABLE AGENTS
             </h2>
-            <div className="space-y-2">
+            <div className="grid gap-3">
               {agents.map((agent) => (
-                <div
+                <button
                   key={agent.name}
-                  className="rounded-lg border border-zinc-200 bg-white p-3 dark:border-zinc-700 dark:bg-zinc-800"
+                  className={`group flex w-full items-center gap-3 rounded-xl p-3 transition-shadow hover:shadow-md ${agent.gradient} border border-zinc-100 dark:border-zinc-800`}
                 >
-                  <p className="text-sm font-medium text-zinc-950 dark:text-zinc-50">
-                    {agent.name}
-                  </p>
-                  <p className="text-xs text-zinc-600 dark:text-zinc-400">
-                    {agent.description}
-                  </p>
-                </div>
+                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-white/70 text-lg shadow-sm">
+                    <span aria-hidden>{agent.icon}</span>
+                  </div>
+                  <div className="text-left">
+                    <p className="text-sm font-semibold leading-4">
+                      {agent.name}
+                    </p>
+                    <p className="mt-1 text-xs opacity-80">
+                      {agent.description}
+                    </p>
+                  </div>
+                </button>
               ))}
             </div>
           </div>
