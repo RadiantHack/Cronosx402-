@@ -20,6 +20,8 @@ export function Sidebar({
   const navItems = [
     { href: "/balance", label: "Overview" },
     { href: "/chat", label: "New Chat" },
+    { href: "/transfer", label: "Transfer" },
+    { href: "/swap", label: "Swap" },
   ];
 
   const agents = [
