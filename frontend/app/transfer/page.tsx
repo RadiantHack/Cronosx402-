@@ -129,8 +129,8 @@ export default function TransferPage() {
   };
 
   const explorerUrl = network === "mainnet" 
-    ? `https://cronoscan.com/tx/${txHash}`
-    : `https://testnet.cronoscan.com/tx/${txHash}`;
+    ? `https://explorer.cronos.org/tx/${txHash}`
+    : `https://explorer.cronos.org/testnet/tx/${txHash}`;
 
   return (
     <div className="flex h-screen w-full overflow-hidden bg-gradient-to-br from-violet-50/30 via-purple-50/30 to-blue-50/30">
