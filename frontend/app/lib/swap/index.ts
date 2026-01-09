@@ -6,11 +6,17 @@
  */
 
 export {
-  swapTokens,
-  getSwapQuote,
+  swapCRO,
+  swapToken,
+  swapCROManual,
+  swapTokenManual,
+  routerAbi,
+  VVS_ROUTER,
+  WCRO,
   type SwapParams,
   type SwapResult,
-  type SwapQuote,
+  type TokenSwapParams,
+  type ManualSwapParams,
   type TokenInfo,
   type CronosNetwork,
 } from './swap';
