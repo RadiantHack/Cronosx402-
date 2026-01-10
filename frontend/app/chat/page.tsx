@@ -184,9 +184,10 @@ export default function ChatPage() {
   // Show loading while checking authentication status
   if (!ready) {
     return (
-      <div className="flex h-screen w-full items-center justify-center bg-zinc-50 font-sans dark:bg-black">
+      <div className="flex h-screen w-full items-center justify-center bg-gradient-to-br from-violet-50 via-purple-50 to-blue-50 font-sans">
         <div className="text-center">
-          <div className="text-lg text-zinc-600 dark:text-zinc-400">
+          <div className="mb-4 inline-block h-12 w-12 animate-spin rounded-full border-4 border-violet-200 border-t-violet-600"></div>
+          <div className="text-lg font-medium text-gray-700">
             Loading...
           </div>
         </div>
@@ -200,15 +201,15 @@ export default function ChatPage() {
   }
 
   return (
-    <div className="flex h-screen w-full overflow-hidden bg-zinc-50 dark:bg-black">
+    <div className="flex h-screen w-full overflow-hidden bg-gradient-to-br from-violet-50/30 via-purple-50/30 to-blue-50/30">
       <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
 
-      <div className="flex flex-1 flex-col overflow-hidden border-x border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950">
+      <div className="flex flex-1 flex-col overflow-hidden border-x border-violet-100 bg-white/80 backdrop-blur-sm">
         {/* Mobile Header */}
-        <div className="flex items-center justify-between border-b border-zinc-200 bg-white px-4 py-3 dark:border-zinc-800 dark:bg-zinc-900 md:hidden">
+        <div className="flex items-center justify-between border-b border-violet-100 bg-white/90 backdrop-blur-md px-4 py-3 shadow-sm md:hidden">
           <button
             onClick={() => setIsSidebarOpen(true)}
-            className="rounded-md p-2 text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800"
+            className="rounded-lg p-2 text-gray-600 hover:bg-violet-50 transition-colors"
           >
             <svg
               className="h-6 w-6"
@@ -224,12 +225,19 @@ export default function ChatPage() {
               />
             </svg>
           </button>
-          <span className="font-semibold text-zinc-900 dark:text-zinc-100">
-            Cronos x402
-          </span>
+          <div className="flex items-center gap-2">
+            <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center">
+              <svg className="h-4 w-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
+            </div>
+            <span className="font-bold text-gray-900">
+              Cronos x402
+            </span>
+          </div>
           <button
             onClick={() => setIsRightSidebarOpen(true)}
-            className="rounded-md p-2 text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800"
+            className="rounded-lg p-2 text-gray-600 hover:bg-violet-50 transition-colors"
           >
             <svg
               className="h-6 w-6"
@@ -247,15 +255,24 @@ export default function ChatPage() {
           </button>
         </div>
 
-        <div className="flex-shrink-0 border-b border-zinc-200 bg-white px-6 py-4 dark:border-zinc-800 dark:bg-zinc-900 hidden md:block">
-          <h1 className="text-xl font-semibold text-zinc-950 dark:text-zinc-50">
-            Agent Workspace
-          </h1>
-          <p className="text-sm text-zinc-600 dark:text-zinc-400">
-            Orchestrate agents and execute strategies
+        <div className="flex-shrink-0 border-b border-violet-100 bg-gradient-to-r from-white via-violet-50/30 to-purple-50/30 px-6 py-5 shadow-sm hidden md:block">
+          <div className="flex items-center gap-3 mb-2">
+            <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center shadow-md shadow-violet-500/30">
+              <svg className="h-5 w-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold bg-gradient-to-r from-violet-600 to-purple-600 bg-clip-text text-transparent">
+                Agent Workspace
+              </h1>
+            </div>
+          </div>
+          <p className="text-sm text-gray-600 ml-[52px]">
+            Orchestrate intelligent DeFi agents and execute strategies
           </p>
         </div>
-        <div className="flex flex-1 flex-col overflow-hidden rounded-b-lg border-b border-zinc-200 dark:border-zinc-800">
+        <div className="flex flex-1 flex-col overflow-hidden">
           <WalletContextInjector />
           <CopilotChat
             className="h-full"

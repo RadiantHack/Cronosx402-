@@ -1,8 +1,32 @@
 @import "tailwindcss";
 
+/* Beautiful Light Mode Theme - Modern Color Palette */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Primary Background Colors */
+  --background: #fafafa;
+  --foreground: #1a1a1a;
+  
+  /* Accent Colors - Vibrant Purple & Blue */
+  --primary: #7c3aed;
+  --primary-hover: #6d28d9;
+  --secondary: #3b82f6;
+  --secondary-hover: #2563eb;
+  
+  /* Surface Colors */
+  --surface: #ffffff;
+  --surface-hover: #f5f5f5;
+  --border: #e5e5e5;
+  
+  /* Text Colors */
+  --text-primary: #1a1a1a;
+  --text-secondary: #737373;
+  --text-tertiary: #a3a3a3;
+  
+  /* Semantic Colors */
+  --success: #10b981;
+  --warning: #f59e0b;
+  --error: #ef4444;
+  --info: #3b82f6;
 }
 
 @theme inline {
@@ -12,36 +36,51 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-geist-sans), system-ui, -apple-system, sans-serif;
+  font-feature-settings: "rlig" 1, "calt" 1;
 }
 
-/* Custom CopilotKit Styles */
+/* Custom CopilotKit Styles - Light Mode Optimized */
 .copilotKitInput {
-  @apply !rounded-xl !border-zinc-200 !bg-zinc-50 !px-4 !py-3 !shadow-sm focus:!border-zinc-400 focus:!ring-0 dark:!border-zinc-800 dark:!bg-zinc-900 dark:focus:!border-zinc-700;
+  @apply !rounded-xl !border-violet-200 !bg-white !px-4 !py-3 !shadow-sm !transition-all focus:!border-violet-400 focus:!ring-2 focus:!ring-violet-100 focus:!shadow-md;
 }
 
 .copilotKitMessage {
-  @apply !rounded-2xl !px-5 !py-3;
+  @apply !rounded-2xl !px-5 !py-3 !shadow-sm;
 }
 
 .copilotKitMessage.user {
-  @apply !bg-zinc-900 !text-white dark:!bg-zinc-100 dark:!text-zinc-900;
+  @apply !bg-gradient-to-br !from-violet-500 !to-purple-600 !text-white !shadow-md;
 }
 
 .copilotKitMessage.assistant {
-  @apply !bg-zinc-100 !text-zinc-900 dark:!bg-zinc-800 dark:!text-zinc-100;
+  @apply !bg-white !text-gray-900 !border !border-gray-200 !shadow-sm;
 }
 
 .copilotKitButton {
-  @apply !rounded-lg !bg-zinc-900 !text-white hover:!bg-zinc-800 dark:!bg-zinc-100 dark:!text-zinc-900 dark:hover:!bg-zinc-200;
+  @apply !rounded-xl !bg-gradient-to-r !from-violet-600 !to-purple-600 !text-white !shadow-md hover:!shadow-lg hover:!from-violet-700 hover:!to-purple-700 !transition-all !duration-200;
+}
+
+/* Smooth Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f5f5f5;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #d4d4d4;
+  border-radius: 4px;
+  transition: background 0.2s;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #a3a3a3;
 }

@@ -27,7 +27,7 @@ export function Providers({ children }: ProvidersProps) {
         loginMethods: ["email", "wallet", "sms"],
         appearance: {
           theme: "light",
-          accentColor: "#9333ea",
+          accentColor: "#7c3aed",
           logo: "https://cronos.org/favicon.ico",
         },
         embeddedWallets: {

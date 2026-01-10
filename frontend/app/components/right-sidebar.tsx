@@ -83,22 +83,22 @@ export function RightSidebar({
       {/* Mobile Backdrop */}
       {isOpen && (
         <div
-          className="fixed inset-0 z-40 bg-black/50 xl:hidden"
+          className="fixed inset-0 z-40 bg-black/30 backdrop-blur-sm xl:hidden"
           onClick={onClose}
         />
       )}
 
       {/* Sidebar Container */}
       <div
-        className={`fixed inset-y-0 right-0 z-50 flex w-80 flex-col border-l border-zinc-200 bg-zinc-50 transition-transform duration-300 dark:border-zinc-800 dark:bg-zinc-900 xl:static xl:flex xl:translate-x-0 ${
+        className={`fixed inset-y-0 right-0 z-50 flex w-80 flex-col border-l border-violet-100 bg-white shadow-lg transition-transform duration-300 xl:static xl:flex xl:translate-x-0 xl:shadow-none ${
           isOpen ? "translate-x-0" : "translate-x-full"
         }`}
       >
         {/* Logout Button - Top */}
-        <div className="flex items-center justify-between border-b border-zinc-200 p-4 dark:border-zinc-800">
+        <div className="flex items-center justify-between border-b border-violet-100 bg-gradient-to-r from-white to-violet-50/30 p-4">
           <button
             onClick={handleLogout}
-            className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-red-50 px-4 py-2.5 text-sm font-medium text-red-600 transition-colors hover:bg-red-100 dark:bg-red-900/20 dark:text-red-400 dark:hover:bg-red-900/30"
+            className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-red-50 to-rose-50 px-4 py-2.5 text-sm font-semibold text-red-600 transition-all hover:from-red-100 hover:to-rose-100 hover:shadow-md border border-red-100"
           >
             <svg
               className="h-4 w-4"
@@ -119,7 +119,7 @@ export function RightSidebar({
           {/* Close button for mobile */}
           <button
             onClick={onClose}
-            className="ml-2 rounded-md p-1 text-zinc-500 hover:bg-zinc-200 dark:text-zinc-400 dark:hover:bg-zinc-800 xl:hidden"
+            className="ml-2 rounded-lg p-1.5 text-gray-500 hover:bg-violet-50 transition-colors xl:hidden"
           >
             <svg
               className="h-5 w-5"
@@ -138,27 +138,27 @@ export function RightSidebar({
         </div>
 
         {/* Wallet Section */}
-        <div className="border-b border-zinc-200 p-6 dark:border-zinc-800">
-          <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
-            Wallet
+        <div className="border-b border-violet-100 p-6 bg-gradient-to-b from-transparent to-violet-50/20">
+          <h2 className="mb-4 text-xs font-bold uppercase tracking-wider text-gray-500">
+            Connected Wallet
           </h2>
           {wallet ? (
-            <div className="rounded-lg border border-zinc-200 bg-white p-4 dark:border-zinc-700 dark:bg-zinc-800">
+            <div className="rounded-xl border border-violet-200 bg-gradient-to-br from-white to-violet-50/30 p-4 shadow-sm">
               <div className="mb-3 flex items-center justify-between">
-                <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                  Wallet Connected
+                <p className="text-xs font-semibold text-gray-600">
+                  Active Connection
                 </p>
                 <div className="flex h-2 w-2 items-center justify-center">
-                  <span className="absolute h-2 w-2 animate-ping rounded-full bg-green-400 opacity-75"></span>
-                  <span className="relative h-2 w-2 rounded-full bg-green-500"></span>
+                  <span className="absolute h-3 w-3 animate-ping rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative h-2 w-2 rounded-full bg-emerald-500 shadow-sm"></span>
                 </div>
               </div>
               <div className="mb-3">
-                <p className="font-mono text-sm font-medium text-zinc-950 dark:text-zinc-50">
+                <p className="font-mono text-base font-bold text-gray-900">
                   {wallet.address.slice(0, 6)}...
                   {wallet.address.slice(-4)}
                 </p>
-                <p className="mt-1 text-xs text-zinc-600 dark:text-zinc-400">
+                <p className="mt-1.5 text-xs font-medium text-violet-600 bg-violet-100 px-2 py-1 rounded-md inline-block">
                   {wallet.walletClientType || "Cronos"}
                 </p>
               </div>
@@ -170,8 +170,8 @@ export function RightSidebar({
               </button> */}
             </div>
           ) : (
-            <div className="rounded-lg border border-zinc-200 bg-white p-4 dark:border-zinc-700 dark:bg-zinc-800">
-              <p className="mb-3 text-sm text-zinc-600 dark:text-zinc-400">
+            <div className="rounded-xl border border-violet-200 bg-gradient-to-br from-white to-violet-50/30 p-4 shadow-sm">
+              <p className="mb-3 text-sm font-medium text-gray-600">
                 No wallet connected
               </p>
               {/* <button
@@ -185,50 +185,54 @@ export function RightSidebar({
         </div>
 
         {/* Deposit/Withdraw Section */}
-        <div className="border-b border-zinc-200 p-6 dark:border-zinc-800">
-          <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+        <div className="border-b border-violet-100 p-6">
+          <h2 className="mb-4 text-xs font-bold uppercase tracking-wider text-gray-500">
             Quick Actions
           </h2>
           <div className="grid grid-cols-2 gap-3">
             <button
               onClick={() => setShowDepositModal(true)}
-              className="flex flex-col items-center gap-2 rounded-lg border border-zinc-200 bg-white p-4 transition-all hover:border-green-300 hover:bg-green-50 dark:border-zinc-700 dark:bg-zinc-800 dark:hover:border-green-700 dark:hover:bg-green-900/20"
+              className="group flex flex-col items-center gap-2 rounded-xl border border-emerald-200 bg-gradient-to-br from-emerald-50 to-green-50 p-4 transition-all hover:shadow-lg hover:scale-105 hover:from-emerald-100 hover:to-green-100"
             >
-              <svg
-                className="h-6 w-6 text-green-600 dark:text-green-400"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 4v16m8-8H4"
-                />
-              </svg>
-              <span className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
+              <div className="rounded-xl bg-white p-2 shadow-sm group-hover:shadow-md transition-shadow">
+                <svg
+                  className="h-6 w-6 text-emerald-600"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 4v16m8-8H4"
+                  />
+                </svg>
+              </div>
+              <span className="text-sm font-bold text-emerald-700">
                 Deposit
               </span>
             </button>
             <button
               onClick={() => setShowWithdrawModal(true)}
-              className="flex flex-col items-center gap-2 rounded-lg border border-zinc-200 bg-white p-4 transition-all hover:border-orange-300 hover:bg-orange-50 dark:border-zinc-700 dark:bg-zinc-800 dark:hover:border-orange-700 dark:hover:bg-orange-900/20"
+              className="group flex flex-col items-center gap-2 rounded-xl border border-orange-200 bg-gradient-to-br from-orange-50 to-amber-50 p-4 transition-all hover:shadow-lg hover:scale-105 hover:from-orange-100 hover:to-amber-100"
             >
-              <svg
-                className="h-6 w-6 text-orange-600 dark:text-orange-400"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M20 12H4"
-                />
-              </svg>
-              <span className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
+              <div className="rounded-xl bg-white p-2 shadow-sm group-hover:shadow-md transition-shadow">
+                <svg
+                  className="h-6 w-6 text-orange-600"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M20 12H4"
+                  />
+                </svg>
+              </div>
+              <span className="text-sm font-bold text-orange-700">
                 Withdraw
               </span>
             </button>
@@ -236,22 +240,27 @@ export function RightSidebar({
 
           {/* Simple modals - you can enhance these */}
           {showDepositModal && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-              <div className="w-96 rounded-lg bg-white p-6 dark:bg-zinc-800">
-                <h3 className="mb-4 text-lg font-semibold text-zinc-900 dark:text-zinc-100">
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+              <div className="w-96 rounded-2xl bg-white p-6 shadow-2xl border border-violet-100">
+                <h3 className="mb-4 text-xl font-bold text-gray-900 flex items-center gap-2">
+                  <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-emerald-500 to-green-600 flex items-center justify-center">
+                    <svg className="h-5 w-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                    </svg>
+                  </div>
                   Deposit Funds
                 </h3>
-                <p className="mb-4 text-sm text-zinc-600 dark:text-zinc-400">
+                <p className="mb-4 text-sm text-gray-600">
                   Send funds to your wallet address:
                 </p>
-                <div className="mb-4 rounded-md bg-zinc-100 p-3 dark:bg-zinc-700">
-                  <p className="break-all font-mono text-xs text-zinc-900 dark:text-zinc-100">
+                <div className="mb-6 rounded-xl bg-gradient-to-br from-violet-50 to-purple-50 p-4 border border-violet-200">
+                  <p className="break-all font-mono text-sm font-bold text-gray-900">
                     {wallet?.address || "Please connect a wallet first"}
                   </p>
                 </div>
                 <button
                   onClick={() => setShowDepositModal(false)}
-                  className="w-full rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
+                  className="w-full rounded-xl bg-gradient-to-r from-violet-600 to-purple-600 px-4 py-3 text-sm font-semibold text-white shadow-lg hover:shadow-xl hover:from-violet-700 hover:to-purple-700 transition-all"
                 >
                   Close
                 </button>
@@ -260,17 +269,22 @@ export function RightSidebar({
           )}
 
           {showWithdrawModal && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-              <div className="w-96 rounded-lg bg-white p-6 dark:bg-zinc-800">
-                <h3 className="mb-4 text-lg font-semibold text-zinc-900 dark:text-zinc-100">
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+              <div className="w-96 rounded-2xl bg-white p-6 shadow-2xl border border-violet-100">
+                <h3 className="mb-4 text-xl font-bold text-gray-900 flex items-center gap-2">
+                  <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-orange-500 to-amber-600 flex items-center justify-center">
+                    <svg className="h-5 w-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
+                    </svg>
+                  </div>
                   Withdraw Funds
                 </h3>
-                <p className="mb-4 text-sm text-zinc-600 dark:text-zinc-400">
+                <p className="mb-6 text-sm text-gray-600">
                   Use the chat to initiate a withdrawal with the Bridge Agent.
                 </p>
                 <button
                   onClick={() => setShowWithdrawModal(false)}
-                  className="w-full rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
+                  className="w-full rounded-xl bg-gradient-to-r from-violet-600 to-purple-600 px-4 py-3 text-sm font-semibold text-white shadow-lg hover:shadow-xl hover:from-violet-700 hover:to-purple-700 transition-all"
                 >
                   Close
                 </button>
@@ -279,38 +293,38 @@ export function RightSidebar({
           )}
         </div>
 
-        {/* Recent Transactions Section */}
-        <div className="flex-1 overflow-y-auto p-6">
-          <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+        {/* Recent Transactions Section (compact list) */}
+        <div className="flex-1 overflow-y-auto p-6 bg-gradient-to-b from-transparent via-violet-50/10 to-violet-50/20">
+          <h2 className="mb-4 text-xs font-bold uppercase tracking-wider text-gray-500">
             Recent Activity
           </h2>
-          <div className="space-y-3">
+          <div className="space-y-2">
             {recentTransactions.map((tx) => (
-              <div
-                key={tx.id}
-                className="flex items-start gap-3 rounded-lg bg-white p-3 shadow-sm transition-all hover:shadow-md dark:bg-zinc-800"
-              >
+              <div key={tx.id} className="group flex items-center gap-3 rounded-xl px-3 py-3 transition-all hover:bg-white hover:shadow-md border border-transparent hover:border-violet-100">
                 <div
-                  className={`flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full text-lg ${getColorClasses(tx.color)}`}
+                  className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl shadow-sm ${
+                    tx.color === "purple"
+                      ? "bg-gradient-to-br from-purple-100 to-violet-100 text-purple-600"
+                      : tx.color === "blue"
+                      ? "bg-gradient-to-br from-blue-100 to-sky-100 text-blue-600"
+                      : tx.color === "green"
+                      ? "bg-gradient-to-br from-emerald-100 to-green-100 text-emerald-600"
+                      : "bg-gradient-to-br from-yellow-100 to-amber-100 text-amber-600"
+                  }`}
                 >
-                  {tx.icon}
+                  <span className="text-lg">{tx.icon}</span>
                 </div>
-                <div className="flex-1 overflow-hidden">
-                  <div className="flex items-start justify-between gap-2">
-                    <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
-                      {tx.type}
-                    </p>
-                    <span className="flex-shrink-0 rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700 dark:bg-green-900/30 dark:text-green-400">
-                      {tx.status}
-                    </span>
-                  </div>
-                  <p className="mt-1 truncate text-xs text-zinc-600 dark:text-zinc-400">
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-bold truncate text-gray-900 group-hover:text-violet-700 transition-colors">
                     {tx.description}
                   </p>
-                  <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-500">
+                  <p className="mt-0.5 text-xs font-medium text-gray-500">
                     {tx.time}
                   </p>
                 </div>
+                <svg className="h-4 w-4 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
               </div>
             ))}
           </div>
