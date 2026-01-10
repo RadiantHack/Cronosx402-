@@ -90,7 +90,7 @@ import os
 import uuid
 import json
 import pathlib
-from decimal import Decimal
+from decimal import Decimal, ROUND_DOWN
 from typing import Any, List, Dict, Optional
 
 import uvicorn
@@ -571,24 +571,72 @@ def fetch_cronos_balances(address: str) -> Dict[str, Any]:
             
             # Get decimals - handle None or missing values
             decimals_raw = currency.get("decimals")
-            if decimals_raw is None:
-                decimals = 18  # Default for most tokens
-            else:
+            decimals = None
+            if decimals_raw is not None:
                 try:
                     decimals = int(decimals_raw)
                 except (ValueError, TypeError):
-                    decimals = 18
-            
+                    decimals = None
+
+            # If decimals missing, attempt to fetch from chain via RPC using eth_call to decimals()
+            if decimals is None:
+                contract_addr = currency.get("address", "") or ""
+                rpc_url = os.getenv("CRONOS_RPC_URL", "https://evm-cronos.crypto.org")
+                if contract_addr:
+                    try:
+                        hex_address = contract_addr if contract_addr.startswith("0x") else f"0x{contract_addr}"
+                        payload_rpc = {
+                            "jsonrpc": "2.0",
+                            "method": "eth_call",
+                            "params": [
+                                {"to": hex_address, "data": "0x313ce567"},
+                                "latest",
+                            ],
+                            "id": 1,
+                        }
+                        rpc_resp = requests.post(rpc_url, json=payload_rpc, timeout=10)
+                        rpc_resp.raise_for_status()
+                        rpc_data = rpc_resp.json()
+                        rpc_result = rpc_data.get("result")
+                        if rpc_result and rpc_result != "0x":
+                            decimals = int(rpc_result, 16)
+                            print(f"Debug: fetched decimals={decimals} for {hex_address} via RPC")
+                    except Exception as e:
+                        print(f"Debug: unable to fetch decimals for {contract_addr} via RPC: {e}")
+
+            # Default to 18 if still unknown
+            if decimals is None:
+                decimals = 18
+
             # Bitquery v2 might return value in different formats
-            # If value contains a decimal point, it's already formatted
-            # Otherwise, it's in smallest units and needs conversion
-            if isinstance(value, str) and '.' in value:
-                # Already in decimal format, store as-is but convert to smallest unit for storage
-                value_in_smallest = str(int(float(value) * (10 ** decimals)))
-            else:
-                # In smallest units (wei/satoshi), keep as-is
-                value_in_smallest = str(int(value_float))
-            
+            # It may return token amounts as decimals (e.g., 0.200826 USDT) or as integers in smallest units
+            # Use Decimal to precisely detect and convert fractional token amounts to smallest units
+            try:
+                value_in_smallest = "0"
+                try:
+                    value_dec = Decimal(str(value))
+                except Exception:
+                    value_dec = None
+
+                if value_dec is not None:
+                    # If the value has fractional part, treat it as token units and multiply by 10^decimals
+                    if value_dec != value_dec.to_integral_value():
+                        value_in_smallest = str(int((value_dec * (Decimal(10) ** decimals)).to_integral_value(rounding=ROUND_DOWN)))
+                    else:
+                        # Integer value - assume it's already in smallest units
+                        value_in_smallest = str(int(value_dec))
+                else:
+                    # Fallback: use the parsed float (previous behavior)
+                    value_in_smallest = str(int(Decimal(str(int(value_float)))))
+            except Exception as e:
+                print(f"Debug: failed to convert token value for {currency.get('symbol')} value={value} decimals={decimals}: {e}")
+                try:
+                    value_in_smallest = str(int(Decimal(str(value))))
+                except Exception:
+                    value_in_smallest = "0"
+
+            print(f"Debug: token {currency.get('symbol')} value={value} decimals_raw={decimals_raw} resolved_decimals={decimals} value_in_smallest={value_in_smallest}")
+
             formatted_balance = {
                 "currency": currency,
                 "value": value_in_smallest,  # Always store in smallest units for consistency
@@ -603,11 +651,18 @@ def fetch_cronos_balances(address: str) -> Dict[str, Any]:
         # Filter out test tokens
         def is_test_token(balance: Dict) -> bool:
             """Check if a token is a test token."""
-            name = balance.get("name", "").lower()
-            symbol = balance.get("symbol", "").lower()
-            return "test" in name or (symbol.startswith("t") and len(symbol) > 1 and symbol[1:].isupper())
+            name = (balance.get("name") or "").lower()
+            symbol = (balance.get("symbol") or "").lower()
+            # Only filter tokens that clearly indicate test tokens in name or symbol
+            return "test" in name or "test" in symbol
         
         filtered_balances = [b for b in formatted_balances if not is_test_token(b)]
+        
+        # Debug: log counts to help troubleshoot missing tokens
+        filtered_out_count = len(formatted_balances) - len(filtered_balances)
+        print(f"Debug: address={address} raw_balances={len(balances_list)} formatted={len(formatted_balances)} filtered_out={filtered_out_count}")
+        if filtered_out_count > 0:
+            print("Debug: filtered out sample:", formatted_balances[:min(5, len(formatted_balances))])
         
         # Sort balances: native CRO first, then by value descending
         def sort_key(balance: Dict) -> tuple:
@@ -626,7 +681,9 @@ def fetch_cronos_balances(address: str) -> Dict[str, Any]:
             "balances": filtered_balances,
             "success": True,
             "total_fetched": len(filtered_balances),
-            "filtered_out": len(formatted_balances) - len(filtered_balances),
+            "filtered_out": filtered_out_count,
+            "raw_balances_count": len(balances_list),
+            "formatted_sample": formatted_balances[:3],
         }
     except requests.exceptions.RequestException as e:
         error_msg = f"Request error: {str(e)}"

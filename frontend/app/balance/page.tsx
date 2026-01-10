@@ -85,25 +85,28 @@ export default function BalancePage() {
 
   const formatBalance = (value: string, decimals: number): string => {
     try {
-      // Handle both decimal strings and integer strings (wei format)
+      // Parse to a numeric value (supports both decimal strings and smallest-unit integers)
+      let balanceNum: number;
+
       if (value.includes('.')) {
-        // Already in decimal format (e.g., "0.162331")
-        const balance = parseFloat(value);
-        return balance.toFixed(6).replace(/\.?0+$/, "") || "0";
+        balanceNum = parseFloat(value);
       } else {
-        // In smallest units (wei format) - convert to decimal
         const valueInt = BigInt(value);
         const divisor = BigInt(10 ** decimals);
         const wholePart = valueInt / divisor;
         const fractionalPart = valueInt % divisor;
-        
-        // Convert fractional part to decimal string
         const fractionalStr = fractionalPart.toString().padStart(decimals, '0');
         const decimalValue = `${wholePart}.${fractionalStr}`;
-        const balance = parseFloat(decimalValue);
-        
-        return balance.toFixed(6).replace(/\.?0+$/, "") || "0";
+        balanceNum = parseFloat(decimalValue);
       }
+
+      // Show tiny but non-zero balances clearly instead of rounding to 0
+      if (balanceNum > 0 && balanceNum < 0.000001) {
+        return "<0.000001";
+      }
+
+      // Otherwise, show up to 6 decimal places (trim trailing zeros)
+      return balanceNum.toFixed(6).replace(/\.?0+$/, "") || "0";
     } catch (err) {
       console.error("Error formatting balance:", err, "value:", value);
       return "0";
