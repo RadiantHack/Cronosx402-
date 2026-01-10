@@ -33,10 +33,48 @@ export default function BalancePage() {
 
   const walletAddress = wallets[0]?.address || "";
 
-  // Auto-fetch balance when wallet is connected
+  // Cache TTL (seconds -> ms)
+  const CACHE_TTL_MS = (parseInt(process.env.NEXT_PUBLIC_BALANCE_CACHE_TTL || "600", 10) || 600) * 1000;
+
+  // Helper: load cached balance from localStorage
+  const loadCachedBalance = (addr: string): BalanceData | null => {
+    try {
+      const raw = localStorage.getItem(`balance_cache_${addr}`);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      if (!parsed || !parsed.timestamp || !parsed.data) return null;
+      if (Date.now() - parsed.timestamp > CACHE_TTL_MS) {
+        // expired
+        localStorage.removeItem(`balance_cache_${addr}`);
+        return null;
+      }
+      return parsed.data as BalanceData;
+    } catch (err) {
+      console.error("Error loading cached balance:", err);
+      return null;
+    }
+  };
+
+  const saveCachedBalance = (addr: string, data: BalanceData) => {
+    try {
+      localStorage.setItem(
+        `balance_cache_${addr}`,
+        JSON.stringify({ timestamp: Date.now(), data })
+      );
+    } catch (err) {
+      console.error("Error saving cached balance:", err);
+    }
+  };
+
+  // Auto-fetch balance when wallet is connected — only if we don't have a fresh cached copy
   useEffect(() => {
     if (ready && authenticated && walletAddress) {
-      fetchBalance();
+      const cached = loadCachedBalance(walletAddress);
+      if (cached) {
+        setBalanceData(cached);
+      } else {
+        fetchBalance();
+      }
     }
   }, [ready, authenticated, walletAddress]);
 
@@ -72,6 +110,12 @@ export default function BalancePage() {
       
       if (data.success) {
         setBalanceData(data);
+        try {
+          // Persist to localStorage to avoid re-fetching on navigation
+          saveCachedBalance(walletAddress, data);
+        } catch (err) {
+          console.error("Error caching balance:", err);
+        }
       } else {
         setError(data.error || "Failed to fetch balance");
       }

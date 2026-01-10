@@ -92,6 +92,12 @@ import json
 import pathlib
 from decimal import Decimal, ROUND_DOWN
 from typing import Any, List, Dict, Optional
+import time
+
+# Simple in-memory cache to avoid excessive Bitquery calls
+# Keyed by network:address (lowercased)
+BALANCE_CACHE_TTL = int(os.getenv("BALANCE_CACHE_TTL", "600"))  # seconds
+_BALANCE_CACHE: Dict[str, Dict[str, Any]] = {}  # { key: {"timestamp": float, "data": dict} }
 
 import uvicorn
 import requests
@@ -369,15 +375,22 @@ def format_balance(amount: str, decimals: int = 18) -> str:
         return str(amount)
 
 
+def _cache_key(address: str, network: str = "cronos") -> str:
+    return f"{network}:{address.lower()}"
+
+
 def fetch_cronos_balances(address: str) -> Dict[str, Any]:
     """Fetch balances from Cronos using Bitquery API.
-    
+
     Fetches all tokens with balance > 0 from Bitquery.
     Zero balance tokens are excluded.
-    
+
+    Uses a simple in-memory cache to avoid repeated calls to Bitquery. Cached entries
+    are stored for BALANCE_CACHE_TTL seconds and returned directly when valid.
+
     Args:
         address: Wallet address to check
-        
+
     Returns:
         Dictionary with balance information
     """
@@ -388,7 +401,21 @@ def fetch_cronos_balances(address: str) -> Dict[str, Any]:
                 "success": False,
                 "error": f"Invalid address format: {address}. Address must start with 0x and contain valid hexadecimal characters.",
             }
-        
+
+        # Check cache first
+        key = _cache_key(address, "cronos")
+        cache_entry = _BALANCE_CACHE.get(key)
+        if cache_entry:
+            age = time.time() - float(cache_entry.get("timestamp", 0))
+            if age < BALANCE_CACHE_TTL:
+                print(f"Debug: cache hit for {address} (age={age:.1f}s)")
+                cached = cache_entry["data"].copy()
+                cached["cached"] = True
+                return cached
+            else:
+                print(f"Debug: cache expired for {address} (age={age:.1f}s)")
+                _BALANCE_CACHE.pop(key, None)
+
         # Get API key - catch ValueError if missing
         try:
             api_key = get_bitquery_api_key()
@@ -398,7 +425,7 @@ def fetch_cronos_balances(address: str) -> Dict[str, Any]:
                 "success": False,
                 "error": str(e),
             }
-        
+
         variables = {
             "address": address,
         }
@@ -675,8 +702,8 @@ def fetch_cronos_balances(address: str) -> Dict[str, Any]:
             return (not is_native, -value)
         
         filtered_balances.sort(key=sort_key)
-        
-        return {
+
+        result = {
             "address": address,
             "balances": filtered_balances,
             "success": True,
@@ -684,7 +711,17 @@ def fetch_cronos_balances(address: str) -> Dict[str, Any]:
             "filtered_out": filtered_out_count,
             "raw_balances_count": len(balances_list),
             "formatted_sample": formatted_balances[:3],
+            "cached": False,
         }
+
+        # Store in cache
+        try:
+            _BALANCE_CACHE[key] = {"timestamp": time.time(), "data": result}
+            print(f"Debug: cached balance for {address}")
+        except Exception as e:
+            print(f"Debug: failed to cache balance for {address}: {e}")
+
+        return result
     except requests.exceptions.RequestException as e:
         error_msg = f"Request error: {str(e)}"
         print(f"Balance fetch request error for {address}: {error_msg}")
