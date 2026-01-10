@@ -5,7 +5,16 @@ import { usePrivy, useWallets } from "@privy-io/react-auth";
 import { useRouter } from "next/navigation";
 import { Sidebar } from "../components/sidebar";
 import { RightSidebar } from "../components/right-sidebar";
-import { swapTokens, getSwapQuote, type CronosNetwork, type TokenInfo } from "@/app/lib/swap";
+import { createPublicClient, formatUnits, http, parseUnits } from "viem";
+import {
+  swapCRO,
+  swapToken,
+  routerAbi,
+  VVS_ROUTER,
+  WCRO,
+  type CronosNetwork,
+  type TokenInfo,
+} from "../../app/lib/swap/swap";
 
 // Common token list for Cronos
 const CRONOS_TOKENS: Record<string, TokenInfo> = {
@@ -63,6 +72,19 @@ const CRONOS_TESTNET_TOKENS: Record<string, TokenInfo> = {
   },
 };
 
+const CRONOS_MAINNET_RPC = "https://cronos-evm.publicnode.com";
+const CRONOS_TESTNET_RPC = "https://cronos-testnet.publicnode.com";
+
+const erc20BalanceOfAbi = [
+  {
+    type: "function",
+    name: "balanceOf",
+    stateMutability: "view",
+    inputs: [{ name: "account", type: "address" }],
+    outputs: [{ name: "", type: "uint256" }],
+  },
+] as const;
+
 export default function SwapPage() {
   const { ready, authenticated, login } = usePrivy();
   const { wallets } = useWallets();
@@ -88,6 +110,8 @@ export default function SwapPage() {
     expectedOutput: string;
     minimumOutput: string;
   } | null>(null);
+  const [balance, setBalance] = useState<string>("");
+  const [balanceLoading, setBalanceLoading] = useState(false);
 
   // Get Privy embedded wallet
   const privyWallet = wallets.find(w => {
@@ -118,8 +142,141 @@ export default function SwapPage() {
   useEffect(() => {
     setQuote(null);
     setError(null);
-    setSuccess(null);
   }, [fromToken, toToken, amount, slippage, network]);
+
+  const fetchQuote = async () => {
+    if (!privyWallet) throw new Error("No Privy wallet connected.");
+
+    if (!amount || fromToken === toToken) {
+      throw new Error("Please enter amount and select different tokens");
+    }
+
+    const amountNum = parseFloat(amount);
+    if (isNaN(amountNum) || amountNum <= 0) {
+      throw new Error("Invalid amount. Must be a positive number.");
+    }
+
+    const from = tokenList[fromToken];
+    const to = tokenList[toToken];
+    if (!from || !to) {
+      throw new Error("Invalid token selection");
+    }
+
+    const rpcUrl = network === "mainnet" ? CRONOS_MAINNET_RPC : CRONOS_TESTNET_RPC;
+    const publicClient = createPublicClient({ transport: http(rpcUrl) });
+
+    const wcroAddress = tokenList["WCRO"]?.address || WCRO;
+    const fromAddress = from.isNative ? wcroAddress : from.address;
+    const toAddress = to.isNative ? wcroAddress : to.address;
+
+    if (!fromAddress || !toAddress) {
+      throw new Error("Token address missing");
+    }
+
+    if (fromAddress.toLowerCase() === toAddress.toLowerCase()) {
+      throw new Error("Please select different tokens");
+    }
+
+    const amountIn = parseUnits(amount, from.decimals);
+
+    const path = [fromAddress as `0x${string}`, ...(fromAddress.toLowerCase() === wcroAddress.toLowerCase() || toAddress.toLowerCase() === wcroAddress.toLowerCase()
+      ? []
+      : [wcroAddress as `0x${string}`]), toAddress as `0x${string}`].filter((_, idx, arr) => idx === 0 || arr[idx] !== arr[idx - 1]);
+
+    const amountsOut = await publicClient.readContract({
+      address: VVS_ROUTER as `0x${string}`,
+      abi: routerAbi,
+      functionName: "getAmountsOut",
+      args: [amountIn, path],
+    });
+
+    const out = amountsOut[amountsOut.length - 1];
+    const expectedOutput = formatUnits(out as bigint, to.decimals);
+    const slip = Number(slippage);
+    const minOut = (out * BigInt(Math.floor((100 - (isNaN(slip) ? 0.5 : slip)) * 100))) / BigInt(100 * 100);
+    const minimumOutput = formatUnits(minOut as bigint, to.decimals);
+
+    return { expectedOutput, minimumOutput };
+  };
+
+  // Auto-refresh quote when inputs change
+  useEffect(() => {
+    if (!privyWallet) return;
+    if (!amount || fromToken === toToken) return;
+
+    const amountNum = parseFloat(amount);
+    if (isNaN(amountNum) || amountNum <= 0) return;
+
+    let cancelled = false;
+    const timer = setTimeout(async () => {
+      setQuoting(true);
+      try {
+        const quoteResult = await fetchQuote();
+
+        if (cancelled) return;
+        setQuote({
+          expectedOutput: quoteResult.expectedOutput,
+          minimumOutput: quoteResult.minimumOutput,
+        });
+      } catch (err: any) {
+        if (cancelled) return;
+        console.error("Auto-quote error:", err);
+        setQuote(null);
+        setError(err.message || "Failed to get quote. Please try again.");
+      } finally {
+        if (!cancelled) setQuoting(false);
+      }
+    }, 500);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [privyWallet, amount, fromToken, toToken, slippage, network, tokenList]);
+
+  useEffect(() => {
+    const fetchBalance = async () => {
+      if (!privyWallet?.address) {
+        setBalance("");
+        return;
+      }
+
+      setBalanceLoading(true);
+      try {
+        const rpcUrl = network === "mainnet" ? CRONOS_MAINNET_RPC : CRONOS_TESTNET_RPC;
+        const publicClient = createPublicClient({ transport: http(rpcUrl) });
+        const token = tokenList[fromToken];
+
+        if (!token) {
+          setBalance("");
+          return;
+        }
+
+        const rawBalance = token.isNative
+          ? await publicClient.getBalance({ address: privyWallet.address as `0x${string}` })
+          : await publicClient.readContract({
+              address: token.address as `0x${string}`,
+              abi: erc20BalanceOfAbi,
+              functionName: "balanceOf",
+              args: [privyWallet.address as `0x${string}`],
+            });
+
+        const formatted = formatUnits(rawBalance as bigint, token.decimals);
+        const trimmed = Number(formatted).toLocaleString("en-US", {
+          maximumFractionDigits: Math.min(token.decimals, 6),
+          useGrouping: false,
+        });
+        setBalance(trimmed);
+      } catch (err) {
+        console.error("Balance fetch error", err);
+        setBalance("");
+      } finally {
+        setBalanceLoading(false);
+      }
+    };
+
+    fetchBalance();
+  }, [privyWallet?.address, network, fromToken, tokenList, txHash]);
 
   // Show loading while checking authentication
   if (!ready) {
@@ -158,34 +315,14 @@ export default function SwapPage() {
       return;
     }
 
-    // Validation
-    if (!amount || fromToken === toToken) {
-      setError("Please enter amount and select different tokens");
-      return;
-    }
-
-    const amountNum = parseFloat(amount);
-    if (isNaN(amountNum) || amountNum <= 0) {
-      setError("Invalid amount. Must be a positive number.");
-      return;
-    }
-
     setQuoting(true);
     setError(null);
 
     try {
-      const quoteResult = await getSwapQuote({
-        wallet: privyWallet,
-        fromToken: tokenList[fromToken],
-        toToken: tokenList[toToken],
-        amount,
-        slippage: parseFloat(slippage),
-        network,
-      });
-
+      const quoteResult = await fetchQuote();
       setQuote({
-        expectedOutput: quoteResult.expectedAmountOut,
-        minimumOutput: quoteResult.minimumAmountOut,
+        expectedOutput: quoteResult.expectedOutput,
+        minimumOutput: quoteResult.minimumOutput,
       });
     } catch (err: any) {
       console.error("Quote error:", err);
@@ -197,6 +334,7 @@ export default function SwapPage() {
 
   const handleSwap = async (e: React.FormEvent) => {
     e.preventDefault();
+    e.stopPropagation();
     
     if (!privyWallet) {
       setError("No Privy wallet connected. Please connect your Privy wallet.");
@@ -221,16 +359,32 @@ export default function SwapPage() {
     setTxHash(null);
 
     try {
-      const result = await swapTokens({
-        wallet: privyWallet,
-        fromToken: tokenList[fromToken],
-        toToken: tokenList[toToken],
-        amount,
-        slippage: parseFloat(slippage),
-        network,
-      });
+      const from = tokenList[fromToken];
+      const to = tokenList[toToken];
 
-      setSuccess(`Swap successful! Swapped ${amount} ${fromToken} for approximately ${result.expectedAmountOut} ${toToken}`);
+      if (!from || !to) {
+        throw new Error("Invalid token selection");
+      }
+
+      const result = from.isNative
+        ? await swapCRO({
+            wallet: privyWallet,
+            toToken: to.address,
+            amountCRO: amount,
+            slippage: parseFloat(slippage),
+            network,
+          })
+        : await swapToken({
+            wallet: privyWallet,
+            fromToken: from.address,
+            toToken: to.address,
+            amount,
+            slippage: parseFloat(slippage),
+            network,
+          });
+
+      const approxOut = quote?.expectedOutput || "";
+      setSuccess(`Swap successful! Swapped ${amount} ${fromToken} for${approxOut ? ` approximately ${approxOut} ` : " "}${toToken}`.trim());
       setTxHash(result.hash);
       
       // Clear form
@@ -250,9 +404,14 @@ export default function SwapPage() {
     setToToken(temp);
   };
 
+  const handleSetMaxAmount = () => {
+    if (!balance) return;
+    setAmount(balance);
+  };
+
   const explorerUrl = network === "mainnet" 
-    ? `https://cronoscan.com/tx/${txHash}`
-    : `https://testnet.cronoscan.com/tx/${txHash}`;
+    ? `https://explorer.cronos.org/tx/${txHash}`
+    : `https://explorer.cronos.org/testnet/tx/${txHash}`;
 
   return (
     <div className="flex h-screen w-full overflow-hidden bg-gradient-to-br from-violet-50/30 via-purple-50/30 to-blue-50/30">
@@ -375,14 +534,27 @@ export default function SwapPage() {
                       </option>
                     ))}
                   </select>
-                  <input
-                    type="text"
-                    value={amount}
-                    onChange={(e) => setAmount(e.target.value)}
-                    placeholder="0.0"
-                    className="flex-1 px-4 py-3 rounded-xl border border-gray-300 focus:border-pink-500 focus:ring-2 focus:ring-pink-500/20 outline-none transition-all text-lg font-semibold"
-                    disabled={loading}
-                  />
+                  <div className="flex-1 flex gap-2">
+                    <input
+                      type="text"
+                      value={amount}
+                      onChange={(e) => setAmount(e.target.value)}
+                      placeholder="0.0"
+                      className="flex-1 px-4 py-3 rounded-xl border border-gray-300 focus:border-pink-500 focus:ring-2 focus:ring-pink-500/20 outline-none transition-all text-lg font-semibold"
+                      disabled={loading}
+                    />
+                    <button
+                      type="button"
+                      onClick={handleSetMaxAmount}
+                      disabled={loading || balanceLoading || !balance}
+                      className="px-3 py-2 rounded-lg border border-pink-200 bg-pink-50 text-pink-700 font-semibold text-sm hover:bg-pink-100 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      Max
+                    </button>
+                  </div>
+                </div>
+                <div className="mt-2 text-xs text-gray-600 text-right">
+                  {balanceLoading ? "Fetching balance..." : `Balance: ${balance || "0"}`}
                 </div>
               </div>
 

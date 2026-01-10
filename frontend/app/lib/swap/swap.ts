@@ -26,6 +26,13 @@ const NATIVE_TOKEN = '0x0000000000000000000000000000000000000000';
 
 export type CronosNetwork = 'mainnet' | 'testnet';
 
+export interface TokenInfo {
+  address: string;
+  symbol: string;
+  decimals: number;
+  isNative: boolean;
+}
+
 function getChainId(network: CronosNetwork): number {
   return network === 'testnet' ? CRONOS_TESTNET_CHAIN_ID : CRONOS_MAINNET_CHAIN_ID;
 }
