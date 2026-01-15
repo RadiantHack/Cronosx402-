@@ -11,6 +11,7 @@ This module is backend-only and does NOT handle user prompts or agent logic.
 
 from __future__ import annotations
 
+import logging
 import os
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Sequence, Tuple
@@ -20,6 +21,10 @@ from web3.middleware import ExtraDataToPOAMiddleware
 from web3.types import TxParams, TxReceipt
 
 from .config import TECTONIC_ADDRESSES, TECTONIC_NETWORK
+from .gas import GasStrategy, create_gas_strategy
+from .providers import ProviderManager, create_provider_manager
+
+logger = logging.getLogger(__name__)
 
 
 # --- Minimal ABIs -----------------------------------------------------------------
@@ -135,6 +140,13 @@ CTOKEN_ABI: List[Dict] = [
         "outputs": [{"name": "", "type": "uint256"}],
         "type": "function",
     },
+    {
+        "constant": True,
+        "inputs": [],
+        "name": "exchangeRateStored",
+        "outputs": [{"name": "", "type": "uint256"}],
+        "type": "function",
+    },
 ]
 
 
@@ -213,24 +225,42 @@ class TectonicClient:
     - Core lending lifecycle (supply, enter markets, borrow, repay, redeem)
     """
 
-    def __init__(self, rpc_url: Optional[str] = None, private_key: Optional[str] = None) -> None:
-        # Resolve RPC
-        env_rpc = os.getenv("CRONOS_RPC")
-        self.rpc_url = rpc_url or env_rpc or (TECTONIC_NETWORK.rpc_urls[0] if TECTONIC_NETWORK.rpc_urls else None)
-        if not self.rpc_url:
-            raise TectonicError("No Cronos RPC URL available for TectonicClient.")
+    def __init__(
+        self,
+        rpc_url: Optional[str] = None,
+        private_key: Optional[str] = None,
+        provider_manager: Optional[ProviderManager] = None,
+    ) -> None:
+        # Initialize provider manager (with failover support)
+        if provider_manager:
+            self.provider_manager = provider_manager
+        else:
+            # Build RPC list: custom URL first, then env, then defaults
+            rpc_list = []
+            if rpc_url:
+                rpc_list.append(rpc_url)
+            env_rpc = os.getenv("CRONOS_RPC")
+            if env_rpc and env_rpc not in rpc_list:
+                rpc_list.append(env_rpc)
+            # Add defaults
+            for default_rpc in TECTONIC_NETWORK.rpc_urls:
+                if default_rpc not in rpc_list:
+                    rpc_list.append(default_rpc)
 
-        self.web3 = Web3(Web3.HTTPProvider(self.rpc_url, request_kwargs={"timeout": 10}))
-        self.web3.middleware_onion.inject(ExtraDataToPOAMiddleware, layer=0)
+            self.provider_manager = create_provider_manager(rpc_urls=rpc_list if rpc_list else None)
 
-        if not self.web3.is_connected():
-            raise TectonicError(f"Failed to connect to Cronos RPC: {self.rpc_url}")
+        # Get Web3 instance from provider manager
+        self.web3 = self.provider_manager.get_web3()
+        self.rpc_url = self.web3.provider.endpoint_uri if hasattr(self.web3.provider, "endpoint_uri") else "unknown"
 
         chain_id = self.web3.eth.chain_id
         if chain_id != TECTONIC_NETWORK.chain_id:
             raise TectonicError(f"Connected to wrong chain_id={chain_id}, expected {TECTONIC_NETWORK.chain_id}.")
 
         self.chain_id = chain_id
+
+        # Initialize gas strategy
+        self.gas_strategy = create_gas_strategy(self.web3)
 
         # Optional signing account (for write operations)
         self._private_key = None
@@ -294,27 +324,40 @@ class TectonicClient:
     def _build_and_send(self, func, tx_overrides: Optional[TxParams] = None) -> TxReceipt:
         """
         Build, sign and send a transaction for the given contract function.
-        Uses simple gasPrice-based strategy for now.
+        Uses EIP-1559 gas strategy with automatic failover.
         """
         sender = self._require_signer()
-        base: TxParams = {
-            "from": sender,
-            "nonce": self.web3.eth.get_transaction_count(sender),
-            "chainId": self.chain_id,
-        }
-        if tx_overrides:
-            base.update(tx_overrides)
+        value = tx_overrides.get("value", 0) if tx_overrides else 0
 
-        # Estimate gas with small buffer
+        # Use gas strategy to build transaction with optimal EIP-1559 parameters
         try:
-            gas_estimate = func.estimate_gas(base)
-        except Exception:
-            gas_estimate = 400_000
+            tx = self.gas_strategy.estimate_and_build_tx(
+                contract_function=func,
+                from_address=sender,
+                value=value,
+                tx_overrides={
+                    "nonce": self.web3.eth.get_transaction_count(sender),
+                    "chainId": self.chain_id,
+                    **(tx_overrides or {}),
+                },
+            )
+        except Exception as e:
+            # Fallback: try to refresh Web3 connection and retry
+            logger.warning(f"Gas strategy failed, refreshing connection: {e}")
+            self.web3 = self.provider_manager.get_web3(force_refresh=True)
+            self.gas_strategy = create_gas_strategy(self.web3)
+            tx = self.gas_strategy.estimate_and_build_tx(
+                contract_function=func,
+                from_address=sender,
+                value=value,
+                tx_overrides={
+                    "nonce": self.web3.eth.get_transaction_count(sender),
+                    "chainId": self.chain_id,
+                    **(tx_overrides or {}),
+                },
+            )
 
-        base.setdefault("gas", int(gas_estimate * 1.2))
-        base.setdefault("gasPrice", self.web3.eth.gas_price)
-
-        tx = func.build_transaction(base)
+        # Sign and send
         signed = self.web3.eth.account.sign_transaction(tx, private_key=self._private_key)
         raw_tx = getattr(signed, "raw_transaction", getattr(signed, "rawTransaction", None))
         tx_hash = self.web3.eth.send_raw_transaction(raw_tx)
