@@ -15,6 +15,9 @@ load_dotenv()
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
+# Import x402 payment middleware (optional - enable as needed)
+from app.x402 import x402Paywall, RouteConfig
+
 from app.agents.balance.agent import create_balance_agent_app
 from app.agents.balance.api import router as balance_api_router
 from app.agents.bridge.agent import create_bridge_agent_app
@@ -28,6 +31,7 @@ from app.agents.stablecoin.agent import create_stablecoin_agent_app
 from app.agents.analytics.agent import create_analytics_agent_app
 from app.agents.orchestrator.agent import create_orchestrator_agent_app
 from app.agents.transfer.agent import create_transfer_agent_app
+from app.agents.premium_chat.agent import create_simple_test_agent
 
 # Configuration constants
 DEFAULT_AGENTS_PORT = 8000
@@ -104,6 +108,10 @@ def register_agents(app: FastAPI) -> None:
     transfer_agent_app = create_transfer_agent_app(card_url=f"{base_url}/transfer")
     app.mount("/transfer", transfer_agent_app.build())
     
+    # Premium Chat Agent (Real LLM-powered chat with x402 payments)
+    premium_chat_app = create_simple_test_agent()
+    app.mount("/premium_chat", premium_chat_app)
+    
     # Orchestrator Agent (AG-UI ADK Protocol)
     orchestrator_agent_app = create_orchestrator_agent_app()
     app.mount("/orchestrator", orchestrator_agent_app)
@@ -121,7 +129,35 @@ def create_app() -> FastAPI:
         version=API_VERSION,
     )
     
-    # Add CORS middleware
+    # x402 payment middleware for premium routes (ADD FIRST - executes last)
+    # Protected routes: Premium Chat Agent requires 0.1 CRO payment
+    x402_routes = {
+        "POST /premium_chat": RouteConfig(
+            network="cronos",
+            asset="CRO",
+            max_amount_required="100000000000000000",  # 0.1 CRO (18 decimals)
+            description="Premium Chat - AI-powered conversation with LLM and real APIs",
+            mime_type="application/json",
+            max_timeout_seconds=600,
+        ),
+    }
+    
+    # Get payment recipient address from environment variable
+    pay_to_address = os.getenv("CRONOS_PAY_TO", "")
+    if pay_to_address and pay_to_address != "0x...":
+        from app.x402.middleware import X402PaywallMiddleware
+        
+        app.add_middleware(
+            X402PaywallMiddleware,
+            pay_to=pay_to_address,
+            routes=x402_routes,
+            skip_paths=["/.well-known/agent.json", "/.well-known/agent-card.json", "/health"],
+        )
+        print(f"✓ x402 Middleware enabled for  premium chat (payment to: {pay_to_address})")
+    else:
+        print("⚠ x402 Middleware disabled: Set CRONOS_PAY_TO environment variable to enable")
+    
+    # Add CORS middleware (ADD LAST - executes first to handle OPTIONS)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=["*"],
