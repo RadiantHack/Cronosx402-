@@ -24,6 +24,7 @@ export function Sidebar({
     { href: "/transfer", label: "Transfer" },
     { href: "/swap", label: "Swap" },
     { href: "/bridge", label: "Bridge" },
+    { href: "/lendborrow", label: "Lend/Borrow" },
   ];
 
   const agents = [
