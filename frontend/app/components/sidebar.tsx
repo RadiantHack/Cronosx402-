@@ -20,8 +20,10 @@ export function Sidebar({
   const navItems = [
     { href: "/balance", label: "Overview" },
     { href: "/chat", label: "New Chat" },
+    { href: "/premium", label: "Premium Chat", premium: true },
     { href: "/transfer", label: "Transfer" },
     { href: "/swap", label: "Swap" },
+    { href: "/bridge", label: "Bridge" },
     { href: "/lendborrow", label: "Lend/Borrow" },
   ];
 
@@ -46,6 +48,13 @@ export function Sidebar({
       icon: "✈️",
       gradient:
         "bg-gradient-to-br from-emerald-100 via-green-100 to-teal-100 text-emerald-700",
+    },
+    {
+      name: "Bridge",
+      description: "Cross-chain bridge",
+      icon: "🌉",
+      gradient:
+        "bg-gradient-to-br from-blue-100 via-cyan-100 to-sky-100 text-blue-700",
     },
   ];
 
@@ -108,6 +117,7 @@ export function Sidebar({
           <nav className="space-y-2">
             {navItems.map((item) => {
               const isActive = pathname === item.href;
+              const isPremium = item.premium || false;
               return (
                 <Link
                   key={item.href}
@@ -119,10 +129,23 @@ export function Sidebar({
                       : "text-gray-700 hover:bg-violet-50 hover:text-violet-700"
                   }`}
                 >
-                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                  </svg>
+                  {isPremium ? (
+                    <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M12 2L15 8.5L22 9.5L17 14.5L18 21.5L12 18L6 21.5L7 14.5L2 9.5L9 8.5L12 2Z" />
+                    </svg>
+                  ) : (
+                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                    </svg>
+                  )}
                   {item.label}
+                  {isPremium && (
+                    <span className={`ml-auto text-xs px-2 py-0.5 rounded-full font-bold ${
+                      isActive ? "bg-white/20" : "bg-yellow-100 text-yellow-700"
+                    }`}>
+                      PRO
+                    </span>
+                  )}
                 </Link>
               );
             })}
