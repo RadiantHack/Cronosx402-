@@ -22,6 +22,7 @@ export function Sidebar({
     { href: "/chat", label: "New Chat" },
     { href: "/transfer", label: "Transfer" },
     { href: "/swap", label: "Swap" },
+    { href: "/lendborrow", label: "Lend/Borrow" },
   ];
 
   const agents = [

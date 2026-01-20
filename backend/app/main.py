@@ -33,6 +33,9 @@ from app.agents.orchestrator.agent import create_orchestrator_agent_app
 from app.agents.transfer.agent import create_transfer_agent_app
 from app.agents.premium_chat.agent import create_simple_test_agent
 
+# Import Tectonic API router
+from app.tectonic.routes import router as tectonic_router
+
 # Configuration constants
 DEFAULT_AGENTS_PORT = 8000
 API_VERSION = "0.1.0"
@@ -115,6 +118,9 @@ def register_agents(app: FastAPI) -> None:
     # Orchestrator Agent (AG-UI ADK Protocol)
     orchestrator_agent_app = create_orchestrator_agent_app()
     app.mount("/orchestrator", orchestrator_agent_app)
+    
+    # Tectonic A2A API (Lending protocol integration)
+    app.include_router(tectonic_router, tags=["tectonic"])
 
 
 def create_app() -> FastAPI:
