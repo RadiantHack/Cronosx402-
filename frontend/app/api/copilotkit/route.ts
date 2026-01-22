@@ -17,11 +17,6 @@ import {
 } from "@copilotkit/runtime";
 import { HttpAgent } from "@ag-ui/client";
 import { A2AMiddlewareAgent } from "@ag-ui/a2a-middleware";
-
-// Patch: Subclass to add detachActiveRun for AbstractAgent compatibility
-class A2AMiddlewareAgentWithDetach extends A2AMiddlewareAgent {
-  detachActiveRun = async () => {};
-}
 import { NextRequest } from "next/server";
 
 export async function POST(request: NextRequest) {
@@ -95,7 +90,7 @@ export async function POST(request: NextRequest) {
 
   // A2A Middleware: Wraps orchestrator and injects send_message_to_a2a_agent tool
   // This allows orchestrator to communicate with all A2A agents transparently
-  const a2aMiddlewareAgent = new A2AMiddlewareAgentWithDetach({
+  const a2aMiddlewareAgent = new A2AMiddlewareAgent({
     description:
       "Web3 and cryptocurrency orchestrator with specialized agents for Cronos operations",
     agentUrls: [
