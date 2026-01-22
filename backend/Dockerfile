@@ -14,8 +14,11 @@ COPY pyproject.toml ./
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -e ".[dev]"
 
+
 # Copy entrypoint script
 COPY docker-entrypoint.sh /usr/local/bin/
+# Convert CRLF to LF for Linux compatibility
+RUN sed -i 's/\r$//' /usr/local/bin/docker-entrypoint.sh
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
 # Copy application code
@@ -28,8 +31,9 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')" || exit 1
 
-# Set entrypoint
-ENTRYPOINT ["docker-entrypoint.sh"]
+
+# Set entrypoint (use full path)
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
 
 # Run the application
 # Use --reload for development, remove for production

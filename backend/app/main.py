@@ -100,7 +100,7 @@ def create_app() -> FastAPI:
     # Add CORS middleware (ADD LAST - executes first to handle OPTIONS)
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],
+        allow_origins=["https://cronosx402.vercel.app/"], 
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
