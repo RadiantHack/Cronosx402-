@@ -30,11 +30,10 @@ interface Position {
   available_liquidity_usdc: number;
 }
 
-interface TectonicPageProps {
-  userAddress?: string;
-}
 
-export default function TectonicPage({ userAddress }: TectonicPageProps) {
+export default function TectonicPage() {
+  // TODO: Get userAddress from context, hook, or provider
+  const userAddress = undefined;
   const [position, setPosition] = useState<Position | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
