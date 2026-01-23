@@ -13,9 +13,11 @@ import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(request: NextRequest) {
   try {
-    // Get base URL - prioritize NEXT_PUBLIC_BASE_URL for Railway/production
-    const rawBaseUrl =
-      process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:8000";
+    // Get base URL from environment (no localhost fallback in production)
+    const rawBaseUrl = process.env.NEXT_PUBLIC_BASE_URL;
+    if (!rawBaseUrl) {
+      throw new Error("NEXTPUBLIC_BASE_URL is not set in environment variables.");
+    }
     const baseUrl = rawBaseUrl.replace(/\/$/, "");
 
     // Balance Agent URL
@@ -57,9 +59,11 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   try {
-    // Get base URL
-    const rawBaseUrl =
-      process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:8000";
+    // Get base URL from environment (no localhost fallback in production)
+    const rawBaseUrl = process.env.NEXT_PUBLIC_BASE_URL;
+    if (!rawBaseUrl) {
+      throw new Error("NEXTPUBLIC_BASE_URL is not set in environment variables.");
+    }
     const baseUrl = rawBaseUrl.replace(/\/$/, "");
 
     // Balance Agent URL

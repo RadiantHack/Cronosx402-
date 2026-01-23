@@ -22,8 +22,10 @@ import { NextRequest } from "next/server";
 export async function POST(request: NextRequest) {
   // Get base URL - prioritize NEXT_PUBLIC_BASE_URL for Railway/production
   // Remove trailing slash if present to avoid double slashes
-  const rawBaseUrl =
-    process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:8000";
+  const rawBaseUrl = process.env.NEXT_PUBLIC_BASE_URL;
+  if (!rawBaseUrl) {
+    throw new Error("NEXTPUBLIC_BASE_URL is not set in environment variables.");
+  }
   const baseUrl = rawBaseUrl.replace(/\/$/, "");
 
   // Agent URLs - only include agents that are currently implemented
