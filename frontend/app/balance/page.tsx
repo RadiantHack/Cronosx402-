@@ -89,9 +89,9 @@ export default function BalancePage() {
 
     try {
       // Call the structured JSON endpoint on the backend
-      const baseUrl = process.env.NEXT_PUBLIC_BASE_URL;
+      const baseUrl = process.env.NEXT_PUBLIC_API_URL;
       if (!baseUrl) {
-        throw new Error("NEXTPUBLIC_BASE_URL is not set in environment variables.");
+        throw new Error("NEXT_PUBLIC_API_URL is not set in environment variables.");
       }
 
       const response = await fetch(`${baseUrl}/api/balance/json`, {

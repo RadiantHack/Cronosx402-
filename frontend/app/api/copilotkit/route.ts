@@ -22,9 +22,9 @@ import { NextRequest } from "next/server";
 export async function POST(request: NextRequest) {
   // Get base URL - prioritize NEXT_PUBLIC_BASE_URL for Railway/production
   // Remove trailing slash if present to avoid double slashes
-  const rawBaseUrl = process.env.NEXT_PUBLIC_BASE_URL;
+  const rawBaseUrl = process.env.NEXT_PUBLIC_API_URL;
   if (!rawBaseUrl) {
-    throw new Error("NEXTPUBLIC_BASE_URL is not set in environment variables.");
+    throw new Error("NEXT_PUBLIC_API_URL is not set in environment variables.");
   }
   const baseUrl = rawBaseUrl.replace(/\/$/, "");
 

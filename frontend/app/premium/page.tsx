@@ -4,7 +4,7 @@ import { PremiumChatExample } from "../components/premium-chat-example";
 
 export default function PremiumChatPage() {
   // Get backend URL from environment or use default
-  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
+  const backendUrl = process.env.NEXT_PUBLIC_API_URL;
 
   return (
     <PremiumChatExample

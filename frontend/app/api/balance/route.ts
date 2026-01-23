@@ -14,9 +14,9 @@ import { NextRequest, NextResponse } from "next/server";
 export async function POST(request: NextRequest) {
   try {
     // Get base URL from environment (no localhost fallback in production)
-    const rawBaseUrl = process.env.NEXT_PUBLIC_BASE_URL;
+    const rawBaseUrl = process.env.NEXT_PUBLIC_API_URL;
     if (!rawBaseUrl) {
-      throw new Error("NEXTPUBLIC_BASE_URL is not set in environment variables.");
+      throw new Error("NEXT_PUBLIC_API_URL is not set in environment variables.");
     }
     const baseUrl = rawBaseUrl.replace(/\/$/, "");
 
@@ -60,9 +60,9 @@ export async function POST(request: NextRequest) {
 export async function GET(request: NextRequest) {
   try {
     // Get base URL from environment (no localhost fallback in production)
-    const rawBaseUrl = process.env.NEXT_PUBLIC_BASE_URL;
+    const rawBaseUrl = process.env.NEXT_PUBLIC_API_URL;
     if (!rawBaseUrl) {
-      throw new Error("NEXTPUBLIC_BASE_URL is not set in environment variables.");
+      throw new Error("NEXT_PUBLIC_API_URL is not set in environment variables.");
     }
     const baseUrl = rawBaseUrl.replace(/\/$/, "");
 

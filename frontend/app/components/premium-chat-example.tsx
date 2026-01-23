@@ -102,7 +102,7 @@ export function PremiumChatExample({
         
         // Provide helpful error messages
         if (error.message.includes("Cannot connect to backend")) {
-          errorContent = `⚠️ Cannot connect to backend server.\n\nPlease check:\n1. Backend is running at ${process.env.NEXT_PUBLIC_BACKEND_URL}\n2. CORS is enabled\n3. Backend URL is correct in .env.local`;
+          errorContent = `⚠️ Cannot connect to backend server.\n\nPlease check:\n1. Backend is running at ${process.env.NEXT_PUBLIC_API_URL}\n2. CORS is enabled\n3. Backend URL is correct in .env.local`;
         }
         
         const errorMessage: Message = {
