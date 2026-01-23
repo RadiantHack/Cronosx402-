@@ -22,23 +22,18 @@ import { NextRequest } from "next/server";
 export async function POST(request: NextRequest) {
   // Get base URL - prioritize NEXT_PUBLIC_BASE_URL for Railway/production
   // Remove trailing slash if present to avoid double slashes
-  const rawBaseUrl =
-    process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:8000";
+  const rawBaseUrl = process.env.NEXT_PUBLIC_API_URL;
+  if (!rawBaseUrl) {
+    throw new Error("NEXT_PUBLIC_API_URL is not set in environment variables.");
+  }
   const baseUrl = rawBaseUrl.replace(/\/$/, "");
 
   // Agent URLs - only include agents that are currently implemented
   const balanceAgentUrl = `${baseUrl}/balance`;
-  const predictionAgentUrl = `${baseUrl}/prediction`;
-  const liquidityAgentUrl = `${baseUrl}/liquidity`;
-  const yieldOptimizerAgentUrl = `${baseUrl}/yield_optimizer`;
-  const lendingAgentUrl = `${baseUrl}/lending`;
-  const bitcoinDefiAgentUrl = `${baseUrl}/bitcoin_defi`;
-  const stablecoinAgentUrl = `${baseUrl}/stablecoin`;
-    const analyticsAgentUrl = `${baseUrl}/analytics`;
-    const transferAgentUrl = `${baseUrl}/transfer`;
-    // Orchestrator URL needs trailing slash to avoid 307 redirect (POST -> GET conversion)
-    // This works for both local (localhost:8000) and Railway (https://backend.railway.app)
-    const orchestratorUrl = `${baseUrl}/orchestrator/`;
+  const transferAgentUrl = `${baseUrl}/transfer`;
+  // Orchestrator URL needs trailing slash to avoid 307 redirect (POST -> GET conversion)
+  // This works for both local (localhost:8000) and Railway (https://backend.railway.app)
+  const orchestratorUrl = `${baseUrl}/orchestrator/`;
 
   // ============================================
   // EXTRACT WALLET ADDRESS FROM REQUEST
@@ -102,50 +97,26 @@ export async function POST(request: NextRequest) {
       "Web3 and cryptocurrency orchestrator with specialized agents for Cronos operations",
     agentUrls: [
       balanceAgentUrl,
-      predictionAgentUrl,
-      liquidityAgentUrl,
-      yieldOptimizerAgentUrl,
-      lendingAgentUrl,
-      bitcoinDefiAgentUrl,
-      stablecoinAgentUrl,
-      analyticsAgentUrl,
       transferAgentUrl,
     ],
     orchestrationAgent,
     instructions: `
       You are a Web3 and cryptocurrency orchestrator agent. Your role is to coordinate
-      specialized agents to help users with blockchain and cryptocurrency operations.
+      specialized agents to help users with blockchain and cryptocurrency operations on Cronos network.
       
       ${connectedWalletAddress 
         ? `\n\n**IMPORTANT USER CONTEXT:**\nThe user has a connected wallet address: ${connectedWalletAddress}\nWhen the user asks for "my balance", "fetch my balance", "check my balance", "get my balance", or similar requests WITHOUT explicitly providing a wallet address, you MUST automatically use this connected wallet address (${connectedWalletAddress}) on the Cronos network. Do NOT ask for the wallet address - use ${connectedWalletAddress} automatically.\n\n`
         : ""
       }
 
-      AVAILABLE SPECIALIZED AGENTS:
+      AVAILABLE SPECIALIZED AGENTS (Cronos Network Only):
 
-      1. **Balance Agent** (LangGraph) - Checks cryptocurrency balances across multiple chains
-         - Supports Ethereum, BNB, Polygon, and other EVM-compatible chains
-         - Can check native token balances (ETH, BNB, MATIC, etc.)
-         - Can check ERC-20 token balances (USDC, USDT, DAI, etc.)
-         - Requires wallet address (0x format) and optional network specification
+      1. **Balance Agent** (LangGraph) - Checks cryptocurrency balances on Cronos
+         - Checks native CRO balance on Cronos network
+         - Can check ERC-20 token balances (USDC, USDT, DAI, etc.) on Cronos
+         - Requires wallet address (0x format) and defaults to Cronos network
 
-      2. **Prediction Agent** (LangGraph) - BRKT prediction markets
-         - Create new prediction markets
-         - Place predictions on existing markets
-         - Check market odds and status
-         - Resolve markets (for creators)
-
-      NOTE: The following agents are planned but not yet implemented:
-      - Bridge Agent - Cross-chain asset bridging
-      - OrderBook Agent - Trading on ClobX DEX
-      - Liquidity Agent - Liquidity management
-      - Yield Optimizer Agent - Yield optimization
-      - Lending Agent - Lending & borrowing
-      - Bitcoin DeFi Agent - Bitcoin DeFi operations
-      - Stablecoin Agent - Stablecoin management
-      - Analytics Agent - Protocol analytics
-
-      11. **Transfer Agent** (LangGraph) - Native CRO token transfers on Cronos
+      2. **Transfer Agent** (LangGraph) - Native CRO token transfers on Cronos
           - Transfer native CRO tokens between addresses
           - Supports both mainnet and testnet
           - Requires amount, recipient address, and optional network specification
@@ -159,6 +130,11 @@ export async function POST(request: NextRequest) {
           - The transaction hash is returned in the result from initiate_transfer action
           - Always include the full transaction hash in your response: "Transfer completed successfully. Transaction hash: 0x..."
           - Users need the transaction hash to track their transaction on block explorers
+
+      NOTE: The following features are available through dedicated UI pages:
+      - **Swap** - Token swaps on VVS Finance (use /swap page)
+      - **Bridge** - Cross-chain bridging (use /bridge page)
+      - **Lending/Borrowing** - Tectonic Protocol (use /tectonic or /lendborrow page)
 
       CRITICAL CONSTRAINTS:
       - You MUST call agents ONE AT A TIME, never make multiple tool calls simultaneously
@@ -178,11 +154,11 @@ export async function POST(request: NextRequest) {
            * Do NOT ask the user for their wallet address - use the connected wallet automatically
          - If user provides a specific wallet address explicitly, use that address instead (prioritize user-provided address)
          - Extract wallet address from user query (format: 0x...) or use connected wallet from get_connected_wallet_address
-         - Extract network if specified (ethereum, bnb, polygon, cronos, etc.) - default to cronos
+         - Network is always Cronos (cronos)
          - Extract token symbol if querying specific token (USDC, USDT, DAI, etc.)
          - Call Balance Agent with appropriate parameters:
-           * For native balance: address and network
-           * For token balance: address, token symbol, and network
+           * For native balance: address and network="cronos"
+           * For token balance: address, token symbol, and network="cronos"
          - Wait for balance response
          - Present results in a clear, user-friendly format
 
@@ -192,34 +168,22 @@ export async function POST(request: NextRequest) {
       - User: "Check my balance"
       - Context: User has connected wallet address 0xE67e4Fb0f9aaa64d18C2970a6Dce833f704e23DD
       - Action: Use connected wallet address automatically
-      - Call Balance Agent: address=0xE67e4Fb0f9aaa64d18C2970a6Dce833f704e23DD, network="cronos" (default)
+      - Call Balance Agent: address=0xE67e4Fb0f9aaa64d18C2970a6Dce833f704e23DD, network="cronos"
       - Present: Native CRO balance
 
-      Example 1b: Balance check with specific address
-      - User: "Check balance of 0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb"
-      - Action: Use the provided address (ignore connected wallet)
-      - Call Balance Agent: address=0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb, network="cronos" (default)
-      - Present: Native CRO balance
+      Example 2: Token balance
+      - User: "Check my USDC balance"
+      - Extract: address (from connected wallet), token="USDC", network="cronos"
+      - Call Balance Agent: address, token="USDC", network="cronos"
+      - Present: USDC token balance on Cronos
 
-      Example 2: Multi-chain balance
-      - User: "Get my balance on Polygon"
-      - Extract: address (if provided), network="polygon"
-      - Call Balance Agent: address, network="polygon"
-      - Present: Native MATIC balance
-
-      Example 3: Token balance
-      - User: "Check my USDC balance on Ethereum"
-      - Extract: address, token="USDC", network="ethereum"
-      - Call Balance Agent: address, token="USDC", network="ethereum"
-      - Present: USDC token balance
-
-      Example 4: Multiple queries
-      - User: "Check my ETH balance and USDT balance on BNB"
-      - First call: Balance Agent for ETH on BNB
-      - Wait for result
-      - Second call: Balance Agent for USDT on BNB
-      - Wait for result
-      - Present: Combined results
+      Example 3: Transfer CRO
+      - User: "Transfer 1 CRO to 0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb"
+      - Extract: amount="1", recipient="0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb"
+      - Ask: "Which network? mainnet or testnet?"
+      - User confirms: "mainnet"
+      - Call Transfer Agent with confirmed network
+      - Present: Transaction hash and success message
 
       ADDRESS VALIDATION:
       - Wallet addresses must start with "0x" and be 42 characters long
@@ -229,24 +193,23 @@ export async function POST(request: NextRequest) {
       - When user provides a specific address, use that address even if a connected wallet exists
 
       NETWORK SUPPORT:
-      - Ethereum (default): ethereum, eth
-      - BNB Chain: bnb, bsc, binance
-      - Polygon: polygon, matic
-      - Other EVM chains as supported by Balance Agent
+      - Only Cronos network is supported (cronos, cro)
+      - All operations default to Cronos mainnet unless testnet is explicitly specified for transfers
 
       TOKEN SUPPORT:
-      - Common tokens: USDC, USDT, DAI, WBTC, WETH
+      - Common tokens on Cronos: USDC, USDT, DAI, WBTC, WETH, VVS, TONIC
       - Token symbols are case-insensitive
       - Always use uppercase for token symbols in responses
 
       RESPONSE STRATEGY:
       - After each agent response, acknowledge what you received
       - Format balance results clearly with:
-        * Network name
+        * Network name (Cronos)
         * Token symbol (if applicable)
         * Balance amount with appropriate decimals
         * Wallet address (truncated for display: 0x...last4)
-      - For multiple queries, organize results by network or token type
+      - For transfers, always confirm the network before execution
+      - Always communicate transaction hash after successful transfer
       - If there's an error, explain it clearly and suggest alternatives
 
       IMPORTANT: Once you have received a response from an agent, do NOT call that same
@@ -254,8 +217,9 @@ export async function POST(request: NextRequest) {
 
       ERROR HANDLING:
       - If balance check fails, explain the error clearly
-      - Suggest checking: address format, network availability, token contract address
-      - For network errors, suggest trying a different network or checking connectivity
+      - Suggest checking: address format, network connectivity, token contract address
+      - For transfer errors, explain the issue (insufficient funds, invalid address, etc.)
+      - Always provide helpful next steps
     `,
   });
 

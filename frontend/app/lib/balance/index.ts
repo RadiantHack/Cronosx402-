@@ -105,7 +105,10 @@ async function fetchBalanceDirectly(
   network: string = "cronos"
 ): Promise<BalanceResponse> {
   try {
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:8000";
+    const baseUrl = process.env.NEXT_PUBLIC_API_URL;
+    if (!baseUrl) {
+      throw new Error("NEXT_PUBLIC_API_URL is not set in environment variables.");
+    }
     
     // Direct call to backend to get structured balance data
     // We'll need to add an endpoint that returns JSON directly

@@ -54,6 +54,7 @@ htmlcov/
 Dockerfile
 .dockerignore
 docker-compose.yml
+!docker-entrypoint.sh
 
 # Documentation
 README.md
